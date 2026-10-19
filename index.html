@@ -154,7 +154,7 @@ function turnInfo(p){
 async function doAct(t,v){
   const i=G.turn,p=G.players[i];
   if(G.phase!='play'||p.id!=me.id||G.side)return;
-  const cost=p.seen?G.stake*2:G.stake;
+  const triple=!!(G.ctr&&G.ctr.n>=1),seenChaal=2*G.stake*(triple?3:1),cost=p.seen?seenChaal:seenChaal/2;
   if(t=='see'){p.seen=true;just=true}
   else if(t=='pack'){p.packed=true;p.last='Packed';lg(p.name+' packed');live().length==1?finish(live()[0],null):nextTurn()}
   else if(t=='chaal'){const ti=turnInfo(p);if(ti.chaal==null)return;const c=ti.chaal;
@@ -164,7 +164,7 @@ async function doAct(t,v){
   else if(t=='counter'){const ti=turnInfo(p);if(!ti.counter)return;pay(p,ti.counter);p.blinds=(p.blinds||0)+1;p.last=ti.label+' '+ti.counter;lg(p.name+' '+ti.label.toLowerCase()+' '+ti.counter);G.ctr.n++;nextTurn()}
   else if(t=='raise'){const ti1=turnInfo(p);if(ti1.force||ti1.counter)return;const S=+v,c=p.seen?2*S:S;if(!(S>G.stake&&S<=Math.floor(G.cfg.max/2)))return;G.stake=S;p.last='Raise '+c;if(!p.seen)p.blinds=(p.blinds||0)+1;G.ctr=p.seen?{C:c,n:0}:null;pay(p,c);lg(p.name+' raised, stake '+S+' (paid '+c+')');nextTurn()}
   else if(t=='show'){if(live().length!=2)return;const o=live().find(x=>x!=i);p.last='Show '+cost;pay(p,cost);lg(p.name+' asked for a show');finish(cmp(score(p.cards),score(G.players[o].cards))>0?i:o,{taker:i,target:o})}
-  else if(t=='side'){const ti3=turnInfo(p);if(ti3.force||ti3.counter)return;G.ctr=null;const o=prevLive(i);if(live().length<3||!p.seen||!G.players[o].seen)return;p.last='Side show '+cost;pay(p,cost);G.side={from:i,to:o};G.tid=(G.tid||0)+1;lg(p.name+' asks '+G.players[o].name+' for a side show')}
+  else if(t=='side'){const ti3=turnInfo(p);if(ti3.force||ti3.counter)return;const o=prevLive(i);if(live().length<3||!p.seen||!G.players[o].seen)return;G.ctr=null;if(triple)G.stake*=3;p.last='Side show '+cost;pay(p,cost);G.side={from:i,to:o};G.tid=(G.tid||0)+1;lg(p.name+' asks '+G.players[o].name+' for a side show')}
   await save();
 }
 async function sideAns(ok){
@@ -304,7 +304,7 @@ function controls(p,i){
   }
   if(!p)return '<div class="mu">You will join next round.</div>';
   if(G.turn!=i)return p.packed?'<div class="mu">You packed. Waiting for the round to finish…</div>':`<div class="mu">Waiting for ${esc(G.players[G.turn].name)}…</div>${p.seen?'':'<button data-a="see">See cards</button>'}`;
-  const ti=turnInfo(p),cost=p.seen?G.stake*2:G.stake,hi=Math.floor(cf.max/2),lo=G.stake+cf.boot,L=live().length;
+  const ti=turnInfo(p),cost=(p.seen?2:1)*G.stake*(ti.triple?3:1),hi=Math.floor(cf.max/2),lo=G.stake+cf.boot,L=live().length;
   const free=!ti.force&&!ti.counter;
   const canRaise=free&&lo<=hi;if(!(rs>=lo&&rs<=hi))rs=lo;
   const prev=prevLive(i),canSide=free&&L>=3&&p.seen&&G.players[prev].seen;
