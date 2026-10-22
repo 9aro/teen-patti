@@ -48,6 +48,11 @@ details summary{cursor:pointer;color:var(--go)}
 .rxm{display:inline-block;margin:0 8px;font-size:44px;animation:rxf 3s forwards}.rxm small{display:block;font-size:11px;color:var(--mu)}
 .rxm.tx{font-size:18px;background:var(--pn);border:1px solid var(--go);border-radius:14px;padding:6px 12px;color:var(--go2)}
 @keyframes rxf{0%{opacity:0;transform:translateY(10px)}10%{opacity:1;transform:none}75%{opacity:1}100%{opacity:0;transform:translateY(-50px)}}
+#app .seat{transition:none}
+.bub{position:fixed;transform:translate(-50%,-100%);max-width:210px;background:#f7f2e4;color:#16161a;padding:6px 10px;border-radius:12px;font-size:13px;line-height:1.25;z-index:60;pointer-events:none;box-shadow:0 4px 14px #000a;animation:bub 4s forwards;word-break:break-word}
+.bub::after{content:"";position:absolute;left:50%;bottom:-6px;margin-left:-6px;border:6px solid transparent;border-bottom:0;border-top-color:#f7f2e4}
+.bub.em{font-size:34px;background:none;box-shadow:none;padding:0}.bub.em::after{display:none}
+@keyframes bub{0%{opacity:0}8%{opacity:1}85%{opacity:1}100%{opacity:0}}
 </style></head><body><main><h1>♠ TEEN PATTI ♠</h1><div id="app"></div></main>
 <button id="rxBtn" data-a="rx" aria-label="Reactions">😀</button>
 <div id="rxPop" hidden><button data-q="👍">👍</button><button data-q="😂">😂</button><button data-q="😮">😮</button><button data-q="👏">👏</button><button data-q="🔥">🔥</button><button data-q="😬">😬</button><button data-q="Nice hand!">Nice hand!</button><button data-q="Good game!">Good game!</button><button data-q="Hurry up ⏱">Hurry up ⏱</button><button data-q="Show me 😏">Show me 😏</button></div>
@@ -114,7 +119,7 @@ async function enter(){
   me.id=ls('tp_id')||('p'+Math.random().toString(36).slice(2,10));ls('tp_id',me.id);
   await pull(true);
   if(!G){
-    G={phase:'lobby',round:0,cfg:{boot:10,start:1000,max:1280,rAAA:1500,rFace:1000,rNum:500,maxBlind:4,turnSecs:0},players:[],wait:[],host:me.id,log:[],stake:10,pot:0,turn:0,dealer:-1,side:null};
+    G={phase:'lobby',round:0,cfg:{boot:10,start:1000,max:1280,rAAA:1500,rFace:1000,rNum:500,maxBlind:4,turnSecs:0,nextSecs:5},players:[],wait:[],host:me.id,log:[],stake:10,pot:0,turn:0,dealer:-1,side:null};
     const r=await sb.from('rooms').insert({code,state:G,version:0});
     if(r.error)await pull(true);else ver=0;
   }
@@ -142,13 +147,14 @@ function finish(w,sh){
   G.result={w,pot:G.pot,show:!!sh,roy};lg(p.name+' wins '+G.pot);G.pot=0;G.phase='over';G.side=null;
 }
 const rnd=n=>{if(typeof crypto=='undefined'||!crypto.getRandomValues)return Math.floor(Math.random()*n);const a=new Uint32Array(1),lim=Math.floor(4294967296/n)*n;do{crypto.getRandomValues(a)}while(a[0]>=lim);return a[0]%n};
-async function deal(){
-  if(G.host!=me.id)return;
+async function deal(auto){
+  if(auto){if(G.phase!='over'||G.players.filter(p=>!p.left).length+(G.wait||[]).length<2)return}
+  else if(G.host!=me.id)return;
   G.gone=(G.gone||[]).concat(G.players.filter(p=>p.left).map(p=>({id:p.id,name:p.name,chips:p.chips,buyin:p.buyin})));
   G.players=G.players.filter(p=>!p.left);G.dealer=Math.max(-1,Math.min(G.dealer,G.players.length-1));
   if(G.phase=='lobby'){
-    const c={boot:+$('c_boot').value,start:+$('c_start').value,max:+$('c_max').value,rAAA:+$('c_aaa').value,rFace:+$('c_face').value,rNum:+$('c_num').value,maxBlind:+$('c_blind').value,turnSecs:+$('c_turn').value};
-    if(!(c.boot>0&&c.start>0&&c.max>=2*c.boot&&c.rAAA>=0&&c.rFace>=0&&c.rNum>=0&&c.maxBlind>=0&&c.turnSecs>=0)){alert('Check settings: max chaal must be at least 2 × boot.');return}
+    const c={boot:+$('c_boot').value,start:+$('c_start').value,max:+$('c_max').value,rAAA:+$('c_aaa').value,rFace:+$('c_face').value,rNum:+$('c_num').value,maxBlind:+$('c_blind').value,turnSecs:+$('c_turn').value,nextSecs:+$('c_next').value};
+    if(!(c.boot>0&&c.start>0&&c.max>=2*c.boot&&c.rAAA>=0&&c.rFace>=0&&c.rNum>=0&&c.maxBlind>=0&&c.turnSecs>=0&&c.nextSecs>=0)){alert('Check settings: max chaal must be at least 2 × boot.');return}
     G.cfg=c;draft=null;
     if(!G.round)G.players.forEach(p=>{p.chips=p.buyin=c.start});
   }
@@ -269,6 +275,13 @@ function finalH(closed){
 
 /* ---------- chat ---------- */
 let chOpen=false,chSeen=-1,rxSeen=-1;
+function bubble(x){
+  const d=document.createElement('div');d.className='bub'+(x.r&&x.m.length<=3?' em':'');d.textContent=x.m.length>60?x.m.slice(0,57)+'…':x.m;
+  const seat=app.querySelector('[data-pid="'+x.id+'"]');
+  if(seat){const r=seat.getBoundingClientRect();d.style.left=(r.left+r.width/2)+'px';d.style.top=(r.top-4)+'px'}
+  else{d.style.left='50%';d.style.top='90px'}
+  document.body.appendChild(d);setTimeout(()=>d.remove(),4000);
+}
 function renderChat(){
   const btn=$('chBtn');
   if(!G){btn.style.display='none';$('rxBtn').style.display='none';return}
@@ -276,7 +289,7 @@ function renderChat(){
   const ms=G.chat||[],lastT=ms.length?ms[ms.length-1].t:0;
   if(chSeen<0)chSeen=lastT;
   if(rxSeen<0)rxSeen=lastT;
-  ms.filter(x=>x.r&&x.t>rxSeen).forEach(x=>{const d=document.createElement('div');d.className='rxm'+(x.m.length>3?' tx':'');d.innerHTML=esc(x.m)+'<small>'+esc(x.n)+'</small>';$('rxBox').appendChild(d);setTimeout(()=>d.remove(),3000)});
+  ms.filter(x=>x.t>rxSeen).forEach(bubble);
   rxSeen=Math.max(rxSeen,lastT);
   if(chOpen){
     const el=$('chList'),atEnd=el.scrollTop+el.clientHeight>=el.scrollHeight-60;
@@ -302,7 +315,8 @@ async function sendChat(){const el=$('chIn'),v=el.value.trim();if(!v||!G)return;
 
 /* ---------- turn timer ---------- */
 let tkey='',tstart=Date.now(),busy=false;
-function tk(){const k=G.round+':'+(G.tid||0)+':'+(G.side?'s':'');if(k!==tkey){tkey=k;tstart=Date.now()}}
+function tk(){const k=G.round+':'+(G.tid||0)+':'+(G.side?'s':'')+':'+G.phase;if(k!==tkey){tkey=k;tstart=Date.now()}}
+function leftNext(){return Math.max(0,Math.ceil((G.cfg.nextSecs||0)-(Date.now()-tstart)/1000))}
 function leftSecs(){return Math.max(0,Math.ceil((G.cfg.turnSecs||0)-(Date.now()-tstart)/1000))}
 async function autoAct(){
   if(G.side){
@@ -313,7 +327,13 @@ async function autoAct(){
   live().length==1?finish(live()[0],null):nextTurn();await save();
 }
 setInterval(()=>{
-  if(!G||G.phase!='play'||!(G.cfg.turnSecs>0))return;
+  if(!G)return;
+  if(G.phase=='over'&&G.cfg.nextSecs>0){
+    tk();const n=G.cfg.nextSecs,el=(Date.now()-tstart)/1000,x=$('nx');if(x)x.textContent=leftNext();
+    if(el>=n+(G.host==me.id?0:3)&&!busy){busy=true;deal(true).finally(()=>{busy=false})}
+    return;
+  }
+  if(G.phase!='play'||!(G.cfg.turnSecs>0))return;
   tk();const secs=G.cfg.turnSecs,el=(Date.now()-tstart)/1000,t=$('tm');if(t)t.textContent=leftSecs();
   const owner=G.side?G.players[G.side.to].id:G.players[G.turn].id;
   if(el>=secs+(owner==me.id?0:2.5)&&!busy){busy=true;autoAct().finally(()=>{busy=false})}
@@ -329,15 +349,15 @@ function seatsH(){
     const rv=over&&R&&q.cards&&((R.show&&!q.packed)||(R.roy||[]).some(r=>r.h==i));
     const st=q.packed?'packed':play?(q.seen?'seen':'blind'):'';
     const cls=(play&&G.turn==i&&!q.packed?'turn ':'')+(play&&q.packed?'out ':'')+(over&&R&&R.w==i?'win':'');
-    return `<div class="seat ${cls}" style="left:${x}%;top:${y}%">${G.dealer==i&&G.round?'<span class="dbtn">D</span>':''}<b>${esc(q.name)}${q.id==me.id?' ★':''}</b>${q.chips}
+    return `<div class="seat ${cls}" data-pid="${esc(q.id)}" style="left:${x}%;top:${y}%">${G.dealer==i&&G.round?'<span class="dbtn">D</span>':''}<b>${esc(q.name)}${q.id==me.id?' ★':''}</b>${q.chips}
       <div class="${net>=0?'pos':'neg'}">${net>=0?'+':''}${net}</div><div class="mu">${st}</div>${q.last&&(play||over)?`<div class="lm">${esc(q.last)}</div>`:''}
       ${rv?`<div class="cs">${q.cards.map(c=>cardH(c,false,true)).join('')}</div>`:''}</div>`}).join('');
 }
 function controls(p,i){
-  const play=G.phase=='play',cf=G.cfg,ry=`Royalty AAA ${cf.rAAA} · face trio ${cf.rFace} · number trio ${cf.rNum} · max blind turns ${cf.maxBlind||'no limit'} · timer ${cf.turnSecs?cf.turnSecs+'s':'off'}`;
+  const play=G.phase=='play',cf=G.cfg,ry=`Royalty AAA ${cf.rAAA} · face trio ${cf.rFace} · number trio ${cf.rNum} · max blind turns ${cf.maxBlind||'no limit'} · timer ${cf.turnSecs?cf.turnSecs+'s':'off'} · auto next hand ${cf.nextSecs?cf.nextSecs+'s':'off'}`;
   if(!play){
     if(G.phase=='lobby'){
-      const d=draft||{boot:cf.boot,start:cf.start,max:cf.max,aaa:cf.rAAA,face:cf.rFace,num:cf.rNum,blind:cf.maxBlind||0,turn:cf.turnSecs||0};
+      const d=draft||{boot:cf.boot,start:cf.start,max:cf.max,aaa:cf.rAAA,face:cf.rFace,num:cf.rNum,blind:cf.maxBlind||0,turn:cf.turnSecs||0,next:cf.nextSecs??5};
       if(G.host==me.id)return `<div class="gl">Table settings (host)</div><div class="g2">
       <label class="mu">Boot<input id="c_boot" type="number" value="${d.boot}"></label>
       <label class="mu">Starting chips<input id="c_start" type="number" value="${d.start}"></label>
@@ -346,11 +366,12 @@ function controls(p,i){
       <label class="mu">Royalty KKK/QQQ/JJJ<input id="c_face" type="number" value="${d.face}"></label>
       <label class="mu">Royalty number trios<input id="c_num" type="number" value="${d.num}"></label>
       <label class="mu">Max blind turns (0 = no limit)<input id="c_blind" type="number" value="${d.blind}"></label>
-      <label class="mu">Turn timer, seconds (0 = off)<input id="c_turn" type="number" value="${d.turn}"></label></div>
+      <label class="mu">Turn timer, seconds (0 = off)<input id="c_turn" type="number" value="${d.turn}"></label>
+      <label class="mu">Auto next hand, seconds (0 = off)<input id="c_next" type="number" value="${d.next}"></label></div>
       <div class="mu">Set a royalty to 0 to switch it off.</div><button class="pri" data-a="deal">Deal</button>`;
       return `<div class="mu">Waiting for the host to deal.<br>Boot ${cf.boot} · start ${cf.start} · max chaal ${cf.max}<br>${ry}</div>`;
     }
-    return (G.host==me.id?`<button class="pri" data-a="deal">Next round</button>`:'<div class="mu">Waiting for the host to deal…</div>')+`<div class="mu">Boot ${cf.boot} · max chaal ${cf.max}<br>${ry}</div>`;
+    return (cf.nextSecs>0?`<div class="gl">Next hand in <span id="nx">${leftNext()}</span>s</div>`:'')+(G.host==me.id?`<button class="pri" data-a="deal">${cf.nextSecs>0?'Deal now':'Next round'}</button>`:(cf.nextSecs>0?'':'<div class="mu">Waiting for the host to deal…</div>'))+`<div class="mu">Boot ${cf.boot} · max chaal ${cf.max}<br>${ry}</div>`;
   }
   if(G.side){
     const s=G.side,b=G.players[s.to];
@@ -381,7 +402,7 @@ function render(){
   tk();renderChat();
   const mi0=idx(),mp0=G.players[mi0],gone0=(G.gone||[]).some(x=>x.id==me.id)&&mi0<0&&!inWait();
   if(G.phase=='closed'||(mp0&&mp0.left)||gone0){app.innerHTML=finalH(G.phase=='closed');return}
-  if($('c_boot'))draft={boot:+$('c_boot').value,start:+$('c_start').value,max:+$('c_max').value,aaa:+$('c_aaa').value,face:+$('c_face').value,num:+$('c_num').value,blind:+$('c_blind').value,turn:+$('c_turn').value};
+  if($('c_boot'))draft={boot:+$('c_boot').value,start:+$('c_start').value,max:+$('c_max').value,aaa:+$('c_aaa').value,face:+$('c_face').value,num:+$('c_num').value,blind:+$('c_blind').value,turn:+$('c_turn').value,next:+$('c_next').value};
   const i=idx(),p=G.players[i],play=G.phase=='play',over=G.phase=='over',R=G.result;
   let h=`<div class="table"><div class="felt"></div><div class="mid"><div class="mu">POT</div><div class="pot">${G.pot}</div>${play?`<div class="mu">stake ${G.stake} · max chaal ${G.cfg.max}</div><div class="mu">Blind ${G.stake} · Seen ${G.stake*2}</div>${G.ctr?`<div class="mu">Last chaal ${G.ctr.C}${G.ctr.n?` · counters ${G.ctr.n}/2 · next chaal ×3`:''}</div>`:''}<div class="gl">▶ ${esc(G.players[G.turn].name)}</div>${G.cfg.turnSecs>0?`<div class="mu">⏱ <span id="tm">${leftSecs()}</span>s</div>`:''}`:''}${over&&R?`<div class="gl">🏆 ${esc(G.players[R.w].name)} wins ${R.pot}</div>${(R.roy||[]).map(r=>`<div class="gl">👑 ${esc(G.players[r.h].name)} ${r.hn}: ${r.amt} × ${r.n}</div>`).join('')}`:''}</div>${seatsH()}</div>`;
   if(p&&p.cards&&(play||over)){
