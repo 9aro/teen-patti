@@ -192,7 +192,7 @@ async function doAct(t,v){
   else if(t=='counter'){const ti=turnInfo(p);if(!ti.counter)return;pay(p,ti.counter);p.blinds=(p.blinds||0)+1;p.last=ti.label+' '+ti.counter;lg(p.name+' '+ti.label.toLowerCase()+' '+ti.counter);G.ctr.n++;nextTurn()}
   else if(t=='raise'){const ti1=turnInfo(p);if(ti1.force||ti1.counter)return;const S=+v,c=p.seen?2*S:S;if(!(S>G.stake&&S<=Math.floor(G.cfg.max/2)))return;G.stake=S;p.last='Raise '+c;if(!p.seen)p.blinds=(p.blinds||0)+1;G.ctr=p.seen?{C:c,n:0}:null;pay(p,c);lg(p.name+' raised, stake '+S+' (paid '+c+')');nextTurn()}
   else if(t=='show'){if(live().length!=2)return;const o=live().find(x=>x!=i);p.last='Show '+cost;pay(p,cost);lg(p.name+' asked for a show');finish(cmp(score(p.cards),score(G.players[o].cards))>0?i:o,{taker:i,target:o})}
-  else if(t=='side'){const ti3=turnInfo(p);if(ti3.force||ti3.counter)return;const o=prevLive(i);if(live().length<3||!p.seen||!G.players[o].seen)return;G.ctr=null;if(triple)G.stake*=3;p.last='Side show '+cost;pay(p,cost);G.side={from:i,to:o};G.tid=(G.tid||0)+1;lg(p.name+' asks '+G.players[o].name+' for a side show')}
+  else if(t=='side'){if(live().length<3||!live().every(x=>G.players[x].seen))return;const o=prevLive(i),b=G.players[o];G.ctr=null;if(triple)G.stake*=3;p.last='Side show '+cost;pay(p,cost);const lo=cmp(score(p.cards),score(b.cards))>0?b:p;lo.packed=true;lo.last='Packed (side show)';lg(p.name+' side show with '+b.name+': '+lo.name+' packed');live().length==1?finish(live()[0],null):nextTurn()}
   await save();
 }
 async function sideAns(ok){
@@ -375,7 +375,7 @@ function controls(p,i){
   }
   if(G.side){
     const s=G.side,b=G.players[s.to];
-    if(b.id==me.id)return `<div class="gl">${esc(G.players[s.from].name)} asks for a side show</div><button class="pri" data-a="yes">Accept</button><button class="dng" data-a="no">Decline</button>`;
+    if(b.id==me.id)return `<div class="gl">${esc(G.players[s.from].name)} asks for a side show</div><button class="pri" data-a="yes">Accept</button>`;
     return `<div class="mu">Side show: waiting for ${esc(b.name)} to answer…</div>`;
   }
   if(!p)return '<div class="mu">You will join next round.</div>';
@@ -383,7 +383,7 @@ function controls(p,i){
   const ti=turnInfo(p),cost=(p.seen?2:1)*G.stake*(ti.triple?3:1),hi=Math.floor(cf.max/2),lo=G.stake+cf.boot,L=live().length;
   const free=!ti.force&&!ti.counter;
   const canRaise=free&&lo<=hi;if(!(rs>=lo&&rs<=hi))rs=lo;
-  const prev=prevLive(i),canSide=free&&L>=3&&p.seen&&G.players[prev].seen;
+  const canSide=L>=3&&live().every(x=>G.players[x].seen);
   const note=ti.force?'<div class="mu">You must see your cards before you can play.</div>':ti.counter?'<div class="mu">A chaal was played. You can counter (staying blind) or see your cards.</div>':(p.seen&&ti.triple?'<div class="mu">Counter played: chaal is now ×3.</div>':'');
   return `<div class="gl">Your turn</div>${note}${p.seen?'':'<button data-a="see">See cards</button>'}
   ${ti.chaal!=null?`<button class="pri" data-a="chaal">${p.seen?(ti.triple?'Chaal ×3':'Chaal'):'Blind'} ${ti.chaal}</button>`:''}
