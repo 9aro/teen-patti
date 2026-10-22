@@ -33,7 +33,28 @@ button.pri{background:linear-gradient(var(--go2),var(--go));color:#1a1405}button
 .dbtn{position:absolute;top:-10px;right:-10px;width:24px;height:24px;border-radius:50%;background:linear-gradient(var(--go2),var(--go));color:#1a1405;font:700 13px/24px system-ui;text-align:center;box-shadow:0 0 8px #000a}
 .lm{color:var(--go2);font-weight:600;margin-top:2px}
 details summary{cursor:pointer;color:var(--go)}
+#chBtn{display:none;position:fixed;left:14px;bottom:calc(16px + env(safe-area-inset-bottom,0px));width:54px;height:54px;border-radius:50%;padding:0;font-size:24px;background:linear-gradient(var(--go2),var(--go));z-index:30;box-shadow:0 4px 14px #000a}
+#chBadge:not(:empty){position:absolute;top:-4px;right:-4px;min-width:20px;height:20px;border-radius:10px;background:var(--rd);color:#fff;font:700 12px/20px system-ui}
+#chBox{position:fixed;left:0;right:0;bottom:0;max-width:560px;margin:0 auto;background:var(--pn);border:1px solid var(--go);border-bottom:0;border-radius:16px 16px 0 0;z-index:40;display:flex;flex-direction:column;padding-bottom:env(safe-area-inset-bottom,0px)}
+#chBox[hidden]{display:none}
+.chh{display:flex;justify-content:space-between;align-items:center;padding:8px 12px;color:var(--go)}.chh button{margin:0;padding:6px 12px}
+#chList{height:38vh;overflow-y:auto;padding:4px 12px}
+.cm{margin:5px 0;font-size:15px;word-break:break-word}.cn{color:var(--go2);font-weight:600}.cm.me .cn{color:var(--ok)}
+.chf{display:flex;gap:8px;padding:8px 12px}.chf input{margin:0}.chf button{margin:0}
+#rxBtn{display:none;position:fixed;left:22px;bottom:calc(80px + env(safe-area-inset-bottom,0px));width:40px;height:40px;border-radius:50%;padding:0;font-size:20px;background:#2a2a35;z-index:30;box-shadow:0 4px 14px #000a}
+#rxPop{position:fixed;left:14px;bottom:calc(128px + env(safe-area-inset-bottom,0px));max-width:270px;display:flex;flex-wrap:wrap;gap:4px;background:var(--pn);border:1px solid var(--go);border-radius:14px;padding:8px;z-index:35}
+#rxPop[hidden]{display:none}#rxPop button{margin:0;padding:8px 10px;font-size:15px}
+#rxBox{position:fixed;top:calc(64px + env(safe-area-inset-top,0px));left:0;right:0;text-align:center;pointer-events:none;z-index:50}
+.rxm{display:inline-block;margin:0 8px;font-size:44px;animation:rxf 3s forwards}.rxm small{display:block;font-size:11px;color:var(--mu)}
+.rxm.tx{font-size:18px;background:var(--pn);border:1px solid var(--go);border-radius:14px;padding:6px 12px;color:var(--go2)}
+@keyframes rxf{0%{opacity:0;transform:translateY(10px)}10%{opacity:1;transform:none}75%{opacity:1}100%{opacity:0;transform:translateY(-50px)}}
 </style></head><body><main><h1>♠ TEEN PATTI ♠</h1><div id="app"></div></main>
+<button id="rxBtn" data-a="rx" aria-label="Reactions">😀</button>
+<div id="rxPop" hidden><button data-q="👍">👍</button><button data-q="😂">😂</button><button data-q="😮">😮</button><button data-q="👏">👏</button><button data-q="🔥">🔥</button><button data-q="😬">😬</button><button data-q="Nice hand!">Nice hand!</button><button data-q="Good game!">Good game!</button><button data-q="Hurry up ⏱">Hurry up ⏱</button><button data-q="Show me 😏">Show me 😏</button></div>
+<div id="rxBox"></div>
+<button id="chBtn" data-a="chat" aria-label="Chat">💬<span id="chBadge"></span></button>
+<div id="chBox" hidden><div class="chh"><b>Table chat</b><button data-a="chat">✕</button></div><div id="chList"></div>
+<div class="chf"><input id="chIn" maxlength="200" placeholder="Message…" enterkeyhint="send" autocomplete="off"><button class="pri" data-a="send">Send</button></div></div>
 <script>
 const SUPABASE_URL='https://xshnochrinvblixkhiny.supabase.co',SUPABASE_KEY='sb_publishable_RnWG0MJ3dEBOzl1Hfib51Q_WqwcwF7R';
 const SU=['♣','♦','♥','♠'],RN={11:'J',12:'Q',13:'K',14:'A'},rn=r=>RN[r]||r;
@@ -120,6 +141,7 @@ function finish(w,sh){
   });
   G.result={w,pot:G.pot,show:!!sh,roy};lg(p.name+' wins '+G.pot);G.pot=0;G.phase='over';G.side=null;
 }
+const rnd=n=>{if(typeof crypto=='undefined'||!crypto.getRandomValues)return Math.floor(Math.random()*n);const a=new Uint32Array(1),lim=Math.floor(4294967296/n)*n;do{crypto.getRandomValues(a)}while(a[0]>=lim);return a[0]%n};
 async function deal(){
   if(G.host!=me.id)return;
   G.gone=(G.gone||[]).concat(G.players.filter(p=>p.left).map(p=>({id:p.id,name:p.name,chips:p.chips,buyin:p.buyin})));
@@ -133,7 +155,7 @@ async function deal(){
   G.players.push(...(G.wait||[]));G.wait=[];
   if(G.players.length<2){alert('Need at least 2 players.');return}
   const d=[];for(let r=2;r<=14;r++)for(let s=1;s<=4;s++)d.push([r,s]);
-  for(let i=d.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[d[i],d[j]]=[d[j],d[i]]}
+  for(let i=d.length-1;i>0;i--){const j=rnd(i+1);[d[i],d[j]]=[d[j],d[i]]}
   G.pot=0;
   G.players.forEach(p=>{p.cards=[d.pop(),d.pop(),d.pop()];p.seen=false;p.packed=false;p.blinds=0;p.last='Boot '+G.cfg.boot;pay(p,G.cfg.boot)});
   G.dealer=(G.dealer+1)%G.players.length;G.turn=G.dealer;nextTurn();
@@ -245,6 +267,39 @@ function finalH(closed){
   return `<div class="panel"><div class="gl">${closed?'Game closed':'You left the table'}</div>${settleBody()}<button class="pri" data-a="home">Back to start</button></div>`;
 }
 
+/* ---------- chat ---------- */
+let chOpen=false,chSeen=-1,rxSeen=-1;
+function renderChat(){
+  const btn=$('chBtn');
+  if(!G){btn.style.display='none';$('rxBtn').style.display='none';return}
+  btn.style.display='block';$('rxBtn').style.display='block';
+  const ms=G.chat||[],lastT=ms.length?ms[ms.length-1].t:0;
+  if(chSeen<0)chSeen=lastT;
+  if(rxSeen<0)rxSeen=lastT;
+  ms.filter(x=>x.r&&x.t>rxSeen).forEach(x=>{const d=document.createElement('div');d.className='rxm'+(x.m.length>3?' tx':'');d.innerHTML=esc(x.m)+'<small>'+esc(x.n)+'</small>';$('rxBox').appendChild(d);setTimeout(()=>d.remove(),3000)});
+  rxSeen=Math.max(rxSeen,lastT);
+  if(chOpen){
+    const el=$('chList'),atEnd=el.scrollTop+el.clientHeight>=el.scrollHeight-60;
+    el.innerHTML=ms.map(x=>`<div class="cm ${x.id==me.id?'me':''}"><span class="cn">${esc(x.n)}</span> ${esc(x.m)}</div>`).join('')||'<div class="mu">No messages yet. Say hi!</div>';
+    if(atEnd)el.scrollTop=el.scrollHeight;
+    chSeen=lastT;
+  }
+  const un=chOpen?0:ms.filter(x=>x.t>chSeen&&x.id!=me.id).length;
+  $('chBadge').textContent=un||'';
+}
+function toggleChat(){
+  chOpen=!chOpen;$('chBox').hidden=!chOpen;
+  if(chOpen){renderChat();const el=$('chList');el.scrollTop=el.scrollHeight;$('chIn').focus()}else renderChat();
+}
+async function sendMsg(v,r){
+  if(!v||!G)return;
+  for(let t=0;t<4;t++){
+    G.chat=(G.chat||[]).concat([{id:me.id,n:me.name,t:Date.now(),m:v.slice(0,200),r:r?1:0}]).slice(-60);
+    if(await save()){const l=$('chList');l.scrollTop=l.scrollHeight;return}
+  }
+}
+async function sendChat(){const el=$('chIn'),v=el.value.trim();if(!v||!G)return;el.value='';return sendMsg(v,false)}
+
 /* ---------- turn timer ---------- */
 let tkey='',tstart=Date.now(),busy=false;
 function tk(){const k=G.round+':'+(G.tid||0)+':'+(G.side?'s':'');if(k!==tkey){tkey=k;tstart=Date.now()}}
@@ -323,7 +378,7 @@ function settleH(){
 }
 function render(){
   if(!G)return;
-  tk();
+  tk();renderChat();
   const mi0=idx(),mp0=G.players[mi0],gone0=(G.gone||[]).some(x=>x.id==me.id)&&mi0<0&&!inWait();
   if(G.phase=='closed'||(mp0&&mp0.left)||gone0){app.innerHTML=finalH(G.phase=='closed');return}
   if($('c_boot'))draft={boot:+$('c_boot').value,start:+$('c_start').value,max:+$('c_max').value,aaa:+$('c_aaa').value,face:+$('c_face').value,num:+$('c_num').value,blind:+$('c_blind').value,turn:+$('c_turn').value};
@@ -346,10 +401,12 @@ function render(){
   app.innerHTML=h;just=false;
 }
 document.addEventListener('click',e=>{
+  const q=e.target.closest('[data-q]');if(q){$('rxPop').hidden=true;if(G)sendMsg(q.dataset.q,true);return}
   const b=e.target.closest('[data-a]');if(!b)return;const a=b.dataset.a;
+  if(a=='rx'){$('rxPop').hidden=!$('rxPop').hidden;return}
   if(a=='join')return enter();
   if(!G)return;
-  if(a=='deal')deal();else if(a=='topup')topup();else if(a=='reset')resetGame();else if(a=='exit')exitGame();else if(a=='close')closeGame();else if(a=='home')location.reload();else if(a=='yes')sideAns(true);else if(a=='no')sideAns(false);
+  if(a=='deal')deal();else if(a=='topup')topup();else if(a=='reset')resetGame();else if(a=='exit')exitGame();else if(a=='close')closeGame();else if(a=='home')location.reload();else if(a=='chat')toggleChat();else if(a=='send')sendChat();else if(a=='yes')sideAns(true);else if(a=='no')sideAns(false);
   else if(a=='raise')doAct('raise',rs);else doAct(a);
 });
 document.addEventListener('input',e=>{
@@ -357,5 +414,6 @@ document.addEventListener('input',e=>{
   if(e.target.id!='rs'||!G)return;rs=+e.target.value;const p=G.players[idx()];
   $('rl').textContent=rs;$('rc').textContent=p.seen?2*rs:rs;
 });
+document.addEventListener('keydown',e=>{if(e.key=='Enter'&&e.target.id=='chIn')sendChat()});
 login();
 </script></body></html>
