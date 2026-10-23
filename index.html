@@ -606,17 +606,25 @@ function pickVoice(){
   return L.find(isF)||L.find(x=>!MALE.test(x.name+' '+x.voiceURI))||L[0]||null;
 }
 if(globalThis.speechSynthesis){try{speechSynthesis.onvoiceschanged=()=>{}}catch(e){}}
+let spkT=0;
 function speak(t){
   if(!voiceOn||muted||!globalThis.speechSynthesis)return;
-  const clean=t.replace(/[\u{1F000}-\u{1FFFF}\u{2600}-\u{27BF}\u{FE0F}]/gu,'').trim();
+  const clean=t.replace(/[\u{1F000}-\u{1FFFF}\u{2600}-\u{27BF}\u{FE0F}]/gu,'').replace(/\s+/g,' ').trim();
   if(!clean)return;
   try{
     speechSynthesis.cancel();
-    const u=new SpeechSynthesisUtterance(clean.replace(/,\s*/g,', ... ').replace(/([!?.])\s+/g,'$1 ... '));
-    const v=pickVoice(),sure=v&&isF(v);
-    u.lang='en-GB';u.rate=.88;u.pitch=sure?1.15:1.7;u.volume=Math.max(0.1,vol);
-    if(v){u.voice=v;u.lang=v.lang}
-    speechSynthesis.speak(u);
+    clearTimeout(spkT);
+    spkT=setTimeout(()=>{
+      try{
+        const u=new SpeechSynthesisUtterance(clean);
+        const v=pickVoice(),sure=v&&isF(v);
+        u.lang='en-GB';u.rate=.95;u.pitch=sure?1.1:1.6;u.volume=Math.max(0.1,vol);
+        if(v){u.voice=v;u.lang=v.lang}
+        window._u=u;
+        speechSynthesis.resume();
+        speechSynthesis.speak(u);
+      }catch(e){}
+    },120);
   }catch(e){}
 }
 function dsay(t,ms=3200){sayT=t;sayUntil=Date.now()+ms;dealerPatch();setTimeout(dealerPatch,ms+60);speak(t)}
