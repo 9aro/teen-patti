@@ -594,14 +594,18 @@ function dealerPatch(){
   if(on&&!d.querySelector('.dsay')){const b=document.createElement('div');b.className='dsay';b.textContent=sayT;d.appendChild(b)}
 }
 function enVoices(){
-  const vs=speechSynthesis.getVoices(),gb=vs.filter(x=>/en[-_]GB/i.test(x.lang));
-  return gb.length?gb:vs.filter(x=>/^en/i.test(x.lang));
+  const vs=speechSynthesis.getVoices().filter(x=>/^en/i.test(x.lang));
+  const rank=x=>/en[-_]GB/i.test(x.lang)?0:/en[-_](US|IN|AU)/i.test(x.lang)?1:2;
+  return vs.slice().sort((p,q)=>rank(p)-rank(q));
 }
-const MALE=/\bmale\b|daniel|oliver|arthur|george|ryan|thomas|james|harry|alfie|rishi|gbb|gbd|rjs|\bmale/i,FEM=/female|serena|kate|martha|libby|sonia|hazel|susan|amy|emma|stephanie|gba|gbc|fis|samantha|karen|tessa|moira|zira/i;
+const MALE=/\bmale\b|daniel|oliver|arthur|george|ryan|thomas|james|harry|alfie|rishi|gbb|gbd|rjs|david|\bmark\b|\bguy\b|ravi|prabhat|\balex\b|\bfred\b|\beric\b|christopher|brian|\btom\b|aaron|evan|nathan|rocko|reed|eddy|grandpa|ethan|liam|connor|william|\bmale/i,
+FEM=/female|serena|kate|martha|libby|sonia|hazel|susan|amy|emma|stephanie|gba|gbc|fis|samantha|karen|tessa|moira|zira|jenny|aria|\bava\b|victoria|allison|joanna|\bivy\b|salli|kendra|kimberly|raveena|heera|neerja|veena|natasha|clara|catherine|fiona|google us english|google uk english female|sandy|shelley|flo\b|grandma|nicky|nora|aria|libby/i;
+const isF=x=>{const i=x.name+' '+x.voiceURI;return FEM.test(i)&&!MALE.test(i)};
 function pickVoice(){
-  const L=enVoices(),id=x=>x.name+' '+x.voiceURI;
-  return L.find(x=>FEM.test(id(x))&&!MALE.test(id(x)))||L.find(x=>!MALE.test(id(x)))||L[0]||null;
+  const L=enVoices();
+  return L.find(isF)||L.find(x=>!MALE.test(x.name+' '+x.voiceURI))||L[0]||null;
 }
+if(globalThis.speechSynthesis){try{speechSynthesis.onvoiceschanged=()=>{}}catch(e){}}
 function speak(t){
   if(!voiceOn||muted||!globalThis.speechSynthesis)return;
   const clean=t.replace(/[\u{1F000}-\u{1FFFF}\u{2600}-\u{27BF}\u{FE0F}]/gu,'').trim();
@@ -609,8 +613,8 @@ function speak(t){
   try{
     speechSynthesis.cancel();
     const u=new SpeechSynthesisUtterance(clean.replace(/,\s*/g,', ... ').replace(/([!?.])\s+/g,'$1 ... '));
-    const v=pickVoice(),sure=v&&FEM.test(v.name+' '+v.voiceURI)&&!MALE.test(v.name+' '+v.voiceURI);
-    u.lang='en-GB';u.rate=.88;u.pitch=sure?1.12:1.45;u.volume=Math.max(0.1,vol);
+    const v=pickVoice(),sure=v&&isF(v);
+    u.lang='en-GB';u.rate=.88;u.pitch=sure?1.15:1.7;u.volume=Math.max(0.1,vol);
     if(v){u.voice=v;u.lang=v.lang}
     speechSynthesis.speak(u);
   }catch(e){}
