@@ -7,7 +7,8 @@
 <style>
 :root{--bg:#0a0a0d;--pn:#15151b;--bd:#2c2c36;--tx:#f3efe4;--mu:#9a968a;--go:#d4af37;--go2:#f1d37a;--rd:#e5604f;--ok:#4bc38a;color-scheme:dark;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 *{box-sizing:border-box}html,body{margin:0}body{background:radial-gradient(circle at 50% 0,#1a1a24,var(--bg) 60%) fixed;color:var(--tx);font:16px/1.4 system-ui,-apple-system,Segoe UI,sans-serif}
-main{position:relative;max-width:560px;margin:0 auto;padding:14px}
+main{position:relative;max-width:560px;margin:0 auto;padding:14px 8px}
+#app>.panel:first-child{margin-top:46px}
 h1{font:600 22px Georgia,serif;letter-spacing:.08em;color:var(--go);margin:4px 0 10px;text-align:center}
 .panel{background:var(--pn);border:1px solid var(--bd);border-radius:14px;padding:10px;margin:8px 0}
 .gl{color:var(--go);font-weight:600;margin-bottom:6px}.mu{color:var(--mu);font-size:13px}
@@ -16,6 +17,7 @@ input[type=range]{padding:0;accent-color:var(--go)}
 button{padding:13px 16px;border:0;border-radius:10px;font-size:16px;font-weight:600;margin:4px 4px 0 0;background:#2a2a35;color:var(--tx)}
 button.pri{background:linear-gradient(var(--go2),var(--go));color:#1a1405}button.dng{background:#5a2a26}button:disabled{opacity:.35}
 .g2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+#ctl{text-align:center}#ctl button{margin:4px 3px 0}#ctl .g2{text-align:left}
 .table{position:relative;height:clamp(260px,46dvh,480px);margin:84px 0 6px}
 .felt{position:absolute;inset:0;border-radius:28px;background:radial-gradient(#10402f,#06231a);border:3px solid var(--go);box-shadow:inset 0 0 40px #000a,0 0 24px #d4af3722}
 .mid{position:absolute;left:50%;top:50%;width:46%;transform:translate(-50%,-50%);text-align:center}.mid .mu{font-size:12px}
@@ -71,7 +73,7 @@ details summary{cursor:pointer;color:var(--go)}
 @keyframes bub{0%{opacity:0}8%{opacity:1}85%{opacity:1}100%{opacity:0}}
 .bar{position:absolute;top:14px;left:14px;right:14px;display:flex;align-items:center;gap:8px;margin:0;pointer-events:none}.bar button{pointer-events:auto;margin:0;padding:6px 10px;font-size:26px;line-height:1;background:none;box-shadow:none}.bar .sp{flex:1}
 body.fsm h1,body.fsm .hf{display:none}body.fsm main{padding-top:4px}
-</style></head><body><main><h1>♠ TEEN PATTI ♠</h1><div class="bar"><button id="muBtn" data-a="mute" aria-label="Sound">🔊</button><span class="sp"></span><button id="fsBtn" data-a="fs" aria-label="Full screen">⛶</button></div>
+</style></head><body><main><div class="bar"><button id="muBtn" data-a="mute" aria-label="Sound">🔊</button><span class="sp"></span><button id="fsBtn" data-a="fs" aria-label="Full screen">⛶</button></div>
 <div id="app"></div></main>
 <button id="rxBtn" data-a="rx" aria-label="Reactions">😀</button>
 <button id="chBtn" data-a="chat" aria-label="Chat">💬<span id="chBadge"></span></button>
@@ -556,7 +558,7 @@ function fit(){
   if(!TH||key!==thKey){
     const vh=window.visualViewport?visualViewport.height:innerHeight,docTop=t.getBoundingClientRect().top+window.scrollY;
     const cc=Math.max(1,Math.floor((mp-1)/2)),need=Math.max(200,68*(cc-1)+90);
-    TH=Math.max(need,Math.min(520,Math.floor(vh-docTop-360)));thKey=key;
+    TH=Math.max(need,Math.min(560,Math.floor(vh-docTop-386)));thKey=key;
   }
   t.style.height=TH+'px';
 }
