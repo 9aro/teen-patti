@@ -355,7 +355,6 @@ const SND={
 };
 const BUF={};
 function snd(k){
-  if(k=='ping'){try{navigator.vibrate&&navigator.vibrate(70)}catch(e){}}
   if(AC&&BUF[k]){const s=AC.createBufferSource();s.buffer=BUF[k];s.connect(MG);s.start();return}
   if(SND[k])SND[k]();
 }
@@ -371,7 +370,12 @@ async function loadSounds(){
     }catch(e){}
   }));
 }
-function play(list){if(muted||!AC)return;list.slice(0,5).forEach((k,i)=>setTimeout(()=>snd(k),i*150))}
+function play(list){
+  if(muted||!AC||!list.length)return;
+  if(list.includes('ping')){try{navigator.vibrate&&navigator.vibrate(70)}catch(e){}}
+  const files=list.filter(k=>BUF[k]);
+  snd(files.length?files[files.length-1]:list[list.length-1]);
+}
 function sndDiff(){
   const me_=G.players.find(x=>x.id==me.id),n={round:G.round,phase:G.phase,tid:G.tid||0,evn:G.evn||0,seen:!!(me_&&me_.seen)},o=snd0;
   snd0=n;if(!o)return;
@@ -383,7 +387,7 @@ function sndDiff(){
   }
   if(o.phase=='play'&&n.phase=='over'&&G.result){
     if((G.result.roy||[]).length)out.push('royalty');
-    const w=G.players[G.result.w];out.push(w&&w.id==me.id?'win':'coin');
+    out.push('coin');
   }
   const cur=G.players[G.turn];
   if(n.phase=='play'&&cur&&cur.id==me.id&&!cur.packed&&(n.tid!==o.tid||n.round!==o.round||o.phase!='play'))out.push('ping');
