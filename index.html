@@ -112,12 +112,14 @@ function login(){
   app.innerHTML=`<div class="panel"><div class="gl">Join a table</div>
   <input id="nm" placeholder="Your name" maxlength="14" value="${esc(ls('tp_n')||'')}">
   <input id="rm" placeholder="Room code (any word, share with friends)" maxlength="20" value="${esc(ls('tp_r')||'')}">
-  <button class="pri" data-a="join">Join</button></div>`;
+  <button class="pri" data-a="join">Join game</button><button data-a="spec">Spectate</button></div>`;
 }
-async function enter(){
-  me.name=$('nm').value.trim()||'Player';
-  code=($('rm').value.trim()||'friends').toLowerCase().replace(/[^a-z0-9]/g,'');
-  ls('tp_n',me.name);ls('tp_r',code);
+let spectate=false;
+const isSpec=()=>G&&idx()<0&&!inWait()&&(G.spec||[]).some(x=>x.id==me.id);
+async function enter(mode){
+  const nmE=$('nm'),rmE=$('rm');
+  if(nmE){me.name=nmE.value.trim()||'Player';code=(rmE.value.trim()||'friends').toLowerCase().replace(/[^a-z0-9]/g,'');ls('tp_n',me.name);ls('tp_r',code)}
+  spectate=mode=='spec';
   if(SUPABASE_URL.startsWith('PASTE')){app.innerHTML='<div class="panel">Add your Supabase URL and key at the top of the script in index.html.</div>';return}
   app.innerHTML='<div class="panel">Connecting…</div>';
   sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
@@ -128,10 +130,14 @@ async function enter(){
     const r=await sb.from('rooms').insert({code,state:G,version:0});
     if(r.error)await pull(true);else ver=0;
   }
-  if(G&&G.phase!='closed'&&idx()>=0&&G.players[idx()].left){G.players[idx()].left=false;lg(me.name+' is back');await save()}
-  for(let t=0;t<4&&G&&G.phase!='closed'&&idx()<0&&!inWait();t++){
+  if(!spectate&&G&&G.phase!='closed'&&idx()>=0&&G.players[idx()].left){G.players[idx()].left=false;lg(me.name+' is back');await save()}
+  if(spectate&&G&&G.phase!='closed'){
+    for(let t=0;t<4&&G&&idx()<0&&!inWait()&&!(G.spec||[]).some(x=>x.id==me.id);t++){G.spec=(G.spec||[]).concat([{id:me.id,name:me.name}]);lg(me.name+' is watching');await save()}
+  }
+  for(let t=0;t<4&&!spectate&&G&&G.phase!='closed'&&idx()<0&&!inWait();t++){
     if(G.cfg.maxPlayers&&G.players.filter(p=>!p.left).length+(G.wait||[]).length>=G.cfg.maxPlayers){
-      app.innerHTML='<div class="panel"><div class="gl">Table is full</div><div class="mu">This table allows '+G.cfg.maxPlayers+' players. Ask the host, or try another room code.</div><button class="pri" data-a="home">Back</button></div>';return}
+      app.innerHTML='<div class="panel"><div class="gl">Table is full</div><div class="mu">This table allows '+G.cfg.maxPlayers+' players. Ask the host, or try another room code.</div><button class="pri" data-a="spec">Watch instead</button><button data-a="home">Back</button></div>';return}
+    G.spec=(G.spec||[]).filter(x=>x.id!=me.id);
     (G.phase=='play'?G.wait:G.players).push({id:me.id,name:me.name,chips:G.cfg.start,buyin:G.cfg.start});
     lg(me.name+' joined');await save();
   }
@@ -231,6 +237,19 @@ async function resetGame(){
 }
 
 /* ---------- exit, close, settlement ---------- */
+async function sitDown(){
+  for(let t=0;t<4;t++){
+    if(idx()>=0||inWait())return;
+    if(G.cfg.maxPlayers&&G.players.filter(p=>!p.left).length+(G.wait||[]).length>=G.cfg.maxPlayers){alert('The table is full right now.');return}
+    G.spec=(G.spec||[]).filter(x=>x.id!=me.id);
+    (G.phase=='play'?G.wait:G.players).push({id:me.id,name:me.name,chips:G.cfg.start,buyin:G.cfg.start});
+    lg(me.name+' took a seat');if(await save())break;
+  }
+}
+async function stopWatching(){
+  for(let t=0;t<4;t++){G.spec=(G.spec||[]).filter(x=>x.id!=me.id);lg(me.name+' stopped watching');if(await save())break}
+  location.reload();
+}
 async function exitGame(){
   if(idx()<0)return;
   if(!confirm('Leave the table? Your hand is packed and you will see who owes whom.'))return;
@@ -274,7 +293,23 @@ function settleBody(){
   ${rows.map(r=>`<tr><td>${esc(r.name)}</td><td align="right">${r.buyin}</td><td align="right">${r.chips}</td><td align="right" class="${r.net>=0?'pos':'neg'}">${r.net>=0?'+':''}${r.net}</td></tr>`).join('')}</table>
   <div class="gl" style="margin-top:10px">Who pays whom</div>
   ${pay.length?pay.map(x=>`<div>${esc(x[0])} pays ${esc(x[1])} <b>${x[2]}</b></div>`).join(''):'<div class="mu">Nobody owes anything.</div>'}
-  ${G.phase=='play'?`<div class="mu" style="margin-top:6px">A round is still being played (pot ${G.pot}). These amounts can change when it ends.</div>`:''}`;
+  ${G.phase=='play'?`<div class="mu" style="margin-top:6px">A round is still being played (pot ${G.pot}). These amounts can change when it ends.</div>`:''}
+  <div style="margin-top:8px"><button data-a="share">📤 Share</button><button data-a="copy">📋 Copy</button></div>`;
+}
+function settleText(){
+  const rows=nets(),pay=owes(rows);
+  return '♠ Teen Patti – settle up\n'+(pay.length?pay.map(x=>x[0]+' pays '+x[1]+' '+x[2]).join('\n'):'Nobody owes anything')+'\n\nNet: '+rows.map(r=>r.name+' '+(r.net>=0?'+':'')+r.net).join(', ');
+}
+async function shareSettle(b){
+  const t=settleText();
+  if(navigator.share){try{await navigator.share({text:t});return}catch(e){if(e&&e.name=='AbortError')return}}
+  copySettle(b);
+}
+async function copySettle(b){
+  const t=settleText();let ok=false;
+  try{await navigator.clipboard.writeText(t);ok=true}catch(e){}
+  if(!ok){prompt('Copy this message',t);return}
+  const o=b.textContent;b.textContent='Copied ✓';setTimeout(()=>{b.textContent=o},1500);
 }
 function finalH(closed){
   return `<div class="panel"><div class="gl">${closed?'Game closed':'You left the table'}</div>${settleBody()}<button class="pri" data-a="home">Back to start</button></div>`;
@@ -288,7 +323,7 @@ function silentWav(){const n=800,b=new DataView(new ArrayBuffer(44+n*2)),w=(o,t)
 function applyVol(){if(MG)MG.gain.value=muted?0:vol*vol}
 async function wl(){try{if(navigator.wakeLock)await navigator.wakeLock.request('screen')}catch(e){}}
 function unlock(){
-  if(!AC){const C=globalThis.AudioContext||globalThis.webkitAudioContext;if(C){AC=new C();MG=AC.createGain();MG.connect(AC.destination);applyVol()}}
+  if(!AC){const C=globalThis.AudioContext||globalThis.webkitAudioContext;if(C){AC=new C();MG=AC.createGain();MG.connect(AC.destination);applyVol();loadSounds()}}
   if(AC&&AC.state!='running')AC.resume();
   if(!unlocked){unlocked=true;try{const a=new Audio(silentWav());a.loop=true;a.play().catch(()=>{})}catch(e){}wl()}
 }
@@ -308,24 +343,43 @@ function noise(d,g=0.3,f=3000,when=0,q=1,type='bandpass',to=null){
 }
 const SND={
   chip(){const p=1+Math.random()*0.15;noise(0.04,0.5,4500*p,0,2,'highpass');tone(2200*p,0.09,'sine',0.18,0,1500*p);tone(3300*p,0.05,'triangle',0.08,0.01)},
-  chip2(){SND.chip();setTimeout(SND.chip,90)},
+  chip2(){snd('chip');setTimeout(()=>snd('chip'),90)},
   stack(){for(let i=0;i<5;i++)setTimeout(()=>{noise(0.04,0.45,4000+i*250,0,2,'highpass');tone(1800+i*120,0.08,'sine',0.14,0,1300)},i*55)},
   card(){noise(0.06,0.45,2600,0,0.8)},
-  deal(){for(let i=0;i<6;i++)setTimeout(SND.card,i*85);setTimeout(SND.chip,620)},
+  deal(){for(let i=0;i<6;i++)setTimeout(()=>snd('card'),i*85);setTimeout(()=>snd('chip'),620)},
   flip(){noise(0.14,0.4,1200,0,1.2,'bandpass',3800)},
   drum(){tone(140,0.45,'sine',0.7,0,45);noise(0.2,0.35,300,0,0.7,'lowpass')},
   whoosh(){noise(0.38,0.35,500,0,0.9,'bandpass',3200)},
   fold(){noise(0.14,0.3,900,0,0.8,'lowpass');tone(320,0.2,'triangle',0.15,0,140)},
-  win(){[523,659,784,1047].forEach((f,i)=>tone(f,0.28,'triangle',0.28,i*0.11));for(let i=0;i<5;i++)setTimeout(SND.chip,500+i*70)},
+  win(){[523,659,784,1047].forEach((f,i)=>tone(f,0.28,'triangle',0.28,i*0.11));for(let i=0;i<5;i++)setTimeout(()=>snd('chip'),500+i*70)},
   royalty(){[523,659,784,1047,1319,1568].forEach((f,i)=>{tone(f,0.45,'triangle',0.28,i*0.1);tone(f/2,0.45,'sine',0.15,i*0.1)});tone(1568,0.9,'sine',0.2,0.6)},
-  ping(){tone(880,0.12,'sine',0.35);tone(1175,0.2,'sine',0.35,0.12);try{navigator.vibrate&&navigator.vibrate(70)}catch(e){}},
+  ping(){tone(880,0.12,'sine',0.35);tone(1175,0.2,'sine',0.35,0.12)},
   tick(){tone(1100,0.04,'square',0.15)},
   buzz(){tone(140,0.35,'square',0.3,0,100)},
   coin(){tone(1500,0.07,'square',0.12);tone(2250,0.35,'sine',0.25,0.07)},
   pop(){tone(500,0.09,'sine',0.25,0,900)},
   react(){tone(700,0.07,'sine',0.25,0,1200);tone(1400,0.12,'sine',0.18,0.07)}
 };
-function play(list){if(muted||!AC)return;list.slice(0,5).forEach((k,i)=>setTimeout(()=>SND[k]&&SND[k](),i*150))}
+const BUF={};
+function snd(k){
+  if(k=='ping'){try{navigator.vibrate&&navigator.vibrate(70)}catch(e){}}
+  if(AC&&BUF[k]){const s=AC.createBufferSource();s.buffer=BUF[k];if(k=='chip'||k=='card')s.playbackRate.value=0.94+Math.random()*0.12;s.connect(MG);s.start();return}
+  if(SND[k])SND[k]();
+}
+async function loadSounds(){
+  if(!AC||!globalThis.fetch)return;
+  for(const k of Object.keys(SND)){
+    for(const ext of ['mp3','wav','ogg']){
+      try{
+        const r=await fetch('sounds/'+k+'.'+ext);
+        if(!r.ok||(r.headers.get('content-type')||'').includes('text/html'))continue;
+        const ab=await r.arrayBuffer();
+        BUF[k]=await new Promise((res,rej)=>AC.decodeAudioData(ab,res,rej));break;
+      }catch(e){}
+    }
+  }
+}
+function play(list){if(muted||!AC)return;list.slice(0,5).forEach((k,i)=>setTimeout(()=>snd(k),i*150))}
 function sndDiff(){
   const me_=G.players.find(x=>x.id==me.id),n={round:G.round,phase:G.phase,tid:G.tid||0,evn:G.evn||0,seen:!!(me_&&me_.seen)},o=snd0;
   snd0=n;if(!o)return;
@@ -466,7 +520,7 @@ function controls(p,i){
     if(b.id==me.id)return `<div class="gl">${esc(G.players[s.from].name)} asks for a side show</div><button class="pri" data-a="yes">Accept</button>`;
     return `<div class="mu">Side show: waiting for ${esc(b.name)} to answer…</div>`;
   }
-  if(!p)return '<div class="mu">You will join next round.</div>';
+  if(!p)return isSpec()?'<div class="mu">👀 You are watching.</div>':'<div class="mu">You will join next round.</div>';
   if(G.turn!=i)return p.packed?'<div class="mu">You packed. Waiting for the round to finish…</div>':`<div class="mu">Waiting for ${esc(G.players[G.turn].name)}…</div>${p.seen?'':'<button data-a="see">See cards</button>'}`;
   const ti=turnInfo(p),cost=(p.seen?2:1)*G.stake*(ti.triple?3:1),hi=Math.floor(cf.max/2),lo=G.stake+cf.boot,L=live().length;
   const free=!ti.force&&!ti.counter;
@@ -503,6 +557,8 @@ function render(){
     h+=`<div class="panel"><div class="gl">Add chips</div><div class="mu">Anytime, even mid-round. Your total buy-in: ${me_.buyin}</div><input id="tu" type="number" placeholder="Amount" value="${esc(tuv)}"><button data-a="topup">Top up</button></div>`;
   }
   if((G.wait||[]).length)h+=`<div class="mu hf">Joining next round: ${G.wait.map(w=>esc(w.name)).join(', ')}</div>`;
+  if((G.spec||[]).length)h+=`<div class="mu hf">👀 Watching: ${G.spec.map(w=>esc(w.name)).join(', ')}</div>`;
+  if(isSpec())h+=`<div class="panel hf"><button class="pri" data-a="sit">Take a seat</button><button class="dng" data-a="unspec">Stop watching</button></div>`;
   if(G.round)h+=settleH();
   if(p)h+=`<div class="panel hf"><button class="dng" data-a="exit">Exit table</button>${G.host==me.id?`${G.round?'<button class="dng" data-a="reset">Reset game</button>':''}${play?'':'<button class="dng" data-a="close">Close game</button>'}<div class="mu">Close ends the game for everyone and shows who owes whom${play?' (available between rounds)':''}. Reset starts everyone fresh and forgets the settlement.</div>`:''}</div>`;
   h+=`<div class="panel log hf">${G.log.slice(-6).reverse().map(esc).join('<br>')}</div>
@@ -515,9 +571,10 @@ document.addEventListener('click',e=>{
   if(a=='rx'){$('rxPop').hidden=!$('rxPop').hidden;return}
   if(a=='mute'){toggleMute();return}
   if(a=='fs'){toggleFs();return}
-  if(a=='join')return enter();
+  if(a=='join')return enter('join');
+  if(a=='spec')return enter('spec');
   if(!G)return;
-  if(a=='deal')deal();else if(a=='topup')topup();else if(a=='reset')resetGame();else if(a=='exit')exitGame();else if(a=='close')closeGame();else if(a=='home')location.reload();else if(a=='chat')toggleChat();else if(a=='send')sendChat();else if(a=='yes')sideAns(true);else if(a=='no')sideAns(false);
+  if(a=='deal')deal();else if(a=='topup')topup();else if(a=='reset')resetGame();else if(a=='exit')exitGame();else if(a=='close')closeGame();else if(a=='home')location.reload();else if(a=='chat')toggleChat();else if(a=='send')sendChat();else if(a=='sit')sitDown();else if(a=='unspec')stopWatching();else if(a=='share')shareSettle(b);else if(a=='copy')copySettle(b);else if(a=='yes')sideAns(true);else if(a=='no')sideAns(false);
   else if(a=='raise')doAct('raise',rs);else doAct(a);
 });
 document.addEventListener('input',e=>{
