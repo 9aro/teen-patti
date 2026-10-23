@@ -18,7 +18,7 @@ button{padding:13px 16px;border:0;border-radius:10px;font-size:16px;font-weight:
 button.pri{background:linear-gradient(var(--go2),var(--go));color:#1a1405}button.dng{background:#5a2a26}button:disabled{opacity:.35}
 .g2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 #ctl{text-align:center}#ctl button{margin:4px 3px 0}#ctl .g2{text-align:left}
-.table{position:relative;height:clamp(260px,46dvh,480px);margin:84px 0 6px}
+.table{position:relative;height:max(294px,min(526px,calc((100vw - 16px) * .9)));margin:84px 0 6px}
 .felt{position:absolute;inset:0;border-radius:28px;background:radial-gradient(#10402f,#06231a);border:3px solid var(--go);box-shadow:inset 0 0 40px #000a,0 0 24px #d4af3722}
 .mid{position:absolute;left:50%;top:50%;width:46%;transform:translate(-50%,-50%);text-align:center}.mid .mu{font-size:12px}
 .pot{font:600 26px Georgia,serif;color:var(--go2)}
@@ -149,7 +149,7 @@ async function enter(mode){
   me.id=ls('tp_id')||('p'+Math.random().toString(36).slice(2,10));ls('tp_id',me.id);
   await pull(true);
   if(!G){
-    G={phase:'lobby',round:0,cfg:{boot:10,start:1000,max:1280,rAAA:1500,rFace:1000,rNum:500,maxBlind:4,turnSecs:0,nextSecs:5,maxPlayers:7},players:[],wait:[],host:me.id,log:[],stake:10,pot:0,turn:0,dealer:-1,side:null};
+    G={phase:'lobby',round:0,cfg:{boot:500,start:1000,max:64000,rAAA:1000,rFace:750,rNum:500,maxBlind:2,turnSecs:40,nextSecs:5,maxPlayers:7},players:[],wait:[],host:me.id,log:[],stake:500,pot:0,turn:0,dealer:-1,side:null};
     const r=await sb.from('rooms').insert({code,state:G,version:0});
     if(r.error)await pull(true);else ver=0;
   }
@@ -421,7 +421,7 @@ function sndDiff(){
 function toggleMute(){muted=!muted;ls('tp_mute',muted?'1':'0');unlock();applyVol();$('muBtn').textContent=muted?'🔇':'🔊';if(!muted)play(['chip'])}
 function setVol(v){vol=Math.max(0,Math.min(1,v));ls('tp_vol',String(vol));if(muted&&vol>0){muted=false;ls('tp_mute','0');$('muBtn').textContent='🔊'}unlock();applyVol()}
 let focus=false;
-function setFocus(on){focus=on;document.body.classList.toggle('fsm',on);$('fsBtn').textContent=on?'✕':'⛶';fit()}
+function setFocus(on){focus=on;document.body.classList.toggle('fsm',on);$('fsBtn').textContent=on?'✕':'⛶'}
 function toggleFs(){
   const d=document,el=d.documentElement,on=d.fullscreenElement||d.webkitFullscreenElement;
   if(focus||on){setFocus(false);if(on)(d.exitFullscreen||d.webkitExitFullscreen).call(d);return}
@@ -549,19 +549,6 @@ function seatsH(){
     const cls=(play&&G.turn==i&&!q.packed?'turn ':'')+(play&&q.packed?'out ':'')+(over&&R&&R.w==i?'win':'');
     return `<div class="seat ${cls}" data-pid="${esc(q.id)}" style="left:${x}%;top:${y}">${G.dealer==i&&G.round?'<span class="dbtn">D</span>':''}<b>${esc(q.name)}${q.id==me.id?' ★':''}</b><div>${q.chips} <span class="${net>=0?'pos':'neg'}">${net>=0?'+':''}${net}</span></div>${rv?`<div class="cs">${q.cards.map(c=>cardH(c,false,true)).join('')}</div>`:`<div class="mu">${st}</div>${q.last&&(play||over)?`<div class="lm">${esc(q.last)}</div>`:''}`}</div>`}).join('');
 }
-// Table height is worked out once per screen shape (width, full screen, max players) and then kept constant,
-// so it never moves when cards open, a show is taken, or a hand ends.
-let TH=0,thKey='';
-function fit(){
-  const t=document.querySelector('.table');if(!t)return;
-  const mp=Math.max(2,(G&&G.cfg&&G.cfg.maxPlayers)||7),key=innerWidth+'|'+(focus?1:0)+'|'+mp;
-  if(!TH||key!==thKey){
-    const vh=window.visualViewport?visualViewport.height:innerHeight,docTop=t.getBoundingClientRect().top+window.scrollY;
-    const cc=Math.max(1,Math.floor((mp-1)/2)),need=Math.max(200,68*(cc-1)+90);
-    TH=Math.max(need,Math.min(560,Math.floor(vh-docTop-386)));thKey=key;
-  }
-  t.style.height=TH+'px';
-}
 function controls(p,i){
   const play=G.phase=='play',cf=G.cfg,ry=`Royalty AAA ${cf.rAAA} · face trio ${cf.rFace} · number trio ${cf.rNum} · max blind turns ${cf.maxBlind||'no limit'} · timer ${cf.turnSecs?cf.turnSecs+'s':'off'} · auto next hand ${cf.nextSecs?cf.nextSecs+'s':'off'} · max ${cf.maxPlayers||'any'} players`;
   if(!play){
@@ -636,7 +623,7 @@ function render(){
   if(p)h+=`<div class="panel hf"><button class="dng" data-a="exit">Exit table</button>${G.host==me.id?`${G.round?'<button class="dng" data-a="reset">Reset game</button>':''}${play?'':'<button class="dng" data-a="close">Close game</button>'}<div class="mu">Close ends the game for everyone and shows who owes whom${play?' (available between rounds)':''}. Reset starts everyone fresh and forgets the settlement.</div>`:''}</div>`;
   h+=`<div class="panel log hf">${G.log.slice(-6).reverse().map(esc).join('<br>')}</div>
   <details class="panel hf"><summary>Hand ranking</summary><div class="mu" style="margin-top:6px">1 Trail (AAA … 222)<br>2 Pure sequence<br>3 Sequence<br>Both sequences: 235 highest, then AKQ, A23, KQJ … 234; same sequence → higher suit of top card<br>4 Colour (compare card by card, then suit)<br>5 Pair (then third card, then suit of the pair’s higher card)<br>6 High card<br>Suits: ♠ › ♥ › ♦ › ♣</div></details>`;
-  app.innerHTML=h;just=false;fit();if(nd)dealAnim();
+  app.innerHTML=h;just=false;if(nd)dealAnim();
 }
 document.addEventListener('click',e=>{
   const q=e.target.closest('[data-q]');if(q){$('rxPop').hidden=true;if(G)sendMsg(q.dataset.q,true);return}
@@ -657,6 +644,5 @@ document.addEventListener('input',e=>{
 });
 document.addEventListener('keydown',e=>{if(e.key=='Enter'&&e.target.id=='chIn')sendChat()});
 $('muBtn').textContent=muted?'🔇':'🔊';
-window.addEventListener('resize',()=>fit());window.addEventListener('orientationchange',()=>setTimeout(()=>fit(),300));
 login();
 </script></body></html>
