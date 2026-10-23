@@ -414,9 +414,14 @@ function sndDiff(){
     end.push('coin');
   }
   const cur=G.players[G.turn];
-  if(n.phase=='play'&&cur&&cur.id==me.id&&!cur.packed&&(n.tid!==o.tid||n.round!==o.round||o.phase!='play'))out.push('ping');
+  const mine=n.phase=='play'&&cur&&cur.id==me.id&&!cur.packed&&(n.tid!==o.tid||n.round!==o.round||o.phase!='play');
   play(out);
   if(end.length)setTimeout(()=>play(end),out.length?450:0);
+  if(mine)setTimeout(()=>{
+    if(muted||!AC)return;
+    try{navigator.vibrate&&navigator.vibrate(70)}catch(e){}
+    snd('ping');
+  },out.length?450:0);
 }
 function toggleMute(){muted=!muted;ls('tp_mute',muted?'1':'0');unlock();applyVol();$('muBtn').textContent=muted?'🔇':'🔊';if(!muted)play(['chip'])}
 function setVol(v){vol=Math.max(0,Math.min(1,v));ls('tp_vol',String(vol));if(muted&&vol>0){muted=false;ls('tp_mute','0');$('muBtn').textContent='🔊'}unlock();applyVol()}
