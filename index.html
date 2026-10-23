@@ -18,7 +18,7 @@ button{padding:13px 16px;border:0;border-radius:10px;font-size:16px;font-weight:
 button.pri{background:linear-gradient(var(--go2),var(--go));color:#1a1405}button.dng{background:#5a2a26}button:disabled{opacity:.35}
 .g2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 #ctl{text-align:center}#ctl button{margin:4px 3px 0}#ctl .g2{text-align:left}
-.table{position:relative;width:100%;aspect-ratio:1/1;height:auto;margin:84px 0 6px}
+.table{position:relative;width:100%;aspect-ratio:1/1;height:auto;margin:118px 0 6px}
 .felt{position:absolute;inset:0;border-radius:28px;background:radial-gradient(#10402f,#06231a);border:3px solid var(--go);box-shadow:inset 0 0 40px #000a,0 0 24px #d4af3722}
 .mid{position:absolute;left:50%;top:50%;width:46%;transform:translate(-50%,-50%);text-align:center}.mid .mu{font-size:12px}
 .pot{font:600 26px Georgia,serif;color:var(--go2)}
@@ -33,11 +33,36 @@ button.pri{background:linear-gradient(var(--go2),var(--go));color:#1a1405}button
 .c.bk{background:repeating-linear-gradient(45deg,#1b1b24,#1b1b24 6px,#262633 6px,#262633 12px);border:1px solid var(--go)}
 .c.sm{width:20px;height:28px;font-size:9px;border-radius:4px}.c.sm span{font-size:11px}
 .dealerRow{position:absolute;left:0;right:0;bottom:calc(100% - 12px);display:flex;justify-content:center;pointer-events:none}
-.dealer{text-align:center}
-.dealer svg{width:58px;height:64px;display:block;margin:0 auto;animation:bob 3s ease-in-out infinite}
+.dealer{text-align:center;position:relative;pointer-events:auto;cursor:pointer}
+.dealer svg{width:92px;height:115px;display:block;margin:0 auto;animation:bob 3s ease-in-out infinite}
 .dealer img{height:80px;width:auto;max-width:150px;object-fit:contain;display:block;margin:0 auto;animation:bob 3s ease-in-out infinite}
 .dealer .dn{font-size:9px;letter-spacing:.14em;color:var(--go2);text-transform:uppercase}
 .dealer.dealing svg,.dealer.dealing img{animation:toss .45s ease-in-out 4}
+.dealer .lid{transform-box:fill-box;transform-origin:50% 0;transform:scaleY(0);animation:lidb 4.4s infinite}
+@keyframes lidb{0%,93%,100%{transform:scaleY(0)}96%{transform:scaleY(1)}}
+.dealer.wink .lidL{animation:wk .8s ease-in-out}
+@keyframes wk{0%,100%{transform:scaleY(0)}25%,70%{transform:scaleY(1)}}
+.dealer .pup{transform:translate(calc(var(--lx,0)*1px),calc(var(--ly,0)*1px));transition:transform .4s ease-out}
+.dealer .head{transform-origin:60px 100px;transform:translateX(calc(var(--hd,0)*.25px)) rotate(calc(var(--hd,0)*1deg));transition:transform .5s ease-out}
+.dealer .brow{transition:transform .25s}
+.dealer.ex-wow .brow{transform:translateY(-3px)}
+.dealer.ex-smile .brow{transform:translateY(-1px)}
+.dealer .torso{transform-origin:60px 150px;animation:br 3.6s ease-in-out infinite}
+@keyframes br{50%{transform:scaleY(1.012)}}
+.dealer .m-s,.dealer .m-w,.dealer .m-t{display:none}
+.dealer.ex-smile .m-s,.dealer.ex-wow .m-w,.dealer.talk .m-t{display:inline}
+.dealer.ex-smile .m-n,.dealer.ex-wow .m-n,.dealer.talk .m-n{display:none}
+.dealer.talk .m-s,.dealer.talk .m-w{display:none}
+.dealer .m-t{transform-box:fill-box;transform-origin:center;animation:mth .2s ease-in-out infinite alternate}
+@keyframes mth{from{transform:scaleY(.5)}to{transform:scaleY(2.6)}}
+.dealer .hand{transform-origin:96px 146px}
+.dealer.dealing .hand{animation:flick .45s ease-in-out 4}
+@keyframes flick{50%{transform:translate(-26px,-10px) rotate(-22deg)}}
+.dealer.dealing .deck{animation:dk .45s ease-in-out 4}
+@keyframes dk{50%{transform:translateY(-3px)}}
+.dsay{position:absolute;left:calc(100% + 4px);top:14px;width:max-content;max-width:min(150px,32vw);background:#f7f2e4;color:#16161a;padding:6px 10px;border-radius:12px;font-size:12px;line-height:1.25;text-align:left;box-shadow:0 4px 14px #000a;z-index:20;animation:dsayin .25s ease-out;pointer-events:none}
+.dsay::before{content:"";position:absolute;right:100%;top:12px;border:6px solid transparent;border-left:0;border-right-color:#f7f2e4}
+@keyframes dsayin{from{opacity:0;transform:translateX(-6px) scale(.9)}to{opacity:1;transform:none}}
 @keyframes bob{50%{transform:translateY(-3px)}}
 @keyframes toss{0%,100%{transform:none}50%{transform:translateY(-4px) rotate(-6deg)}}
 .fly{position:fixed;width:32px;height:46px;border-radius:5px;border:1px solid var(--go);background:repeating-linear-gradient(45deg,#1b1b24,#1b1b24 4px,#262633 4px,#262633 8px);z-index:70;pointer-events:none;opacity:0}
@@ -73,7 +98,7 @@ details summary{cursor:pointer;color:var(--go)}
 @keyframes bub{0%{opacity:0}8%{opacity:1}85%{opacity:1}100%{opacity:0}}
 .bar{position:absolute;top:14px;left:14px;right:14px;display:flex;align-items:center;gap:8px;margin:0;pointer-events:none}.bar button{pointer-events:auto;margin:0;padding:6px 10px;font-size:26px;line-height:1;background:none;box-shadow:none}.bar .sp{flex:1}
 body.fsm h1,body.fsm .hf{display:none}body.fsm main{padding-top:4px}
-</style></head><body><main><div class="bar"><button id="muBtn" data-a="mute" aria-label="Sound">🔊</button><span class="sp"></span><button id="fsBtn" data-a="fs" aria-label="Full screen">⛶</button></div>
+</style></head><body><main><div class="bar"><button id="muBtn" data-a="mute" aria-label="Sound">🔊</button><button id="vcBtn" data-a="voice" aria-label="Dealer voice">🗣️</button><span class="sp"></span><button id="fsBtn" data-a="fs" aria-label="Full screen">⛶</button></div>
 <div id="app"></div></main>
 <button id="rxBtn" data-a="rx" aria-label="Reactions">😀</button>
 <button id="chBtn" data-a="chat" aria-label="Chat">💬<span id="chBadge"></span></button>
@@ -440,7 +465,7 @@ document.addEventListener('visibilitychange',()=>{if(!document.hidden&&unlocked)
 
 /* ---------- chat ---------- */
 let chOpen=false,chSeen=-1,rxSeen=-1;
-function bubble(x){
+function bubble(x){dealerChat(x);
   play([x.r&&x.m.length<=3?'react':'pop']);
   const d=document.createElement('div');d.className='bub'+(x.r&&x.m.length<=3?' em':'');d.textContent=x.m.length>60?x.m.slice(0,57)+'…':x.m;
   const seat=app.querySelector('[data-pid="'+x.id+'"]');
@@ -502,17 +527,155 @@ setInterval(()=>{
   if(G.phase!='play'||!(G.cfg.turnSecs>0))return;
   tk();const secs=G.cfg.turnSecs,el=(Date.now()-tstart)/1000,t=$('tm');if(t)t.textContent=leftSecs();
   const owner=G.side?G.players[G.side.to].id:G.players[G.turn].id;
-  if(owner==me.id&&el<secs&&secs-el<=5&&Math.floor(el)!==tickN){tickN=Math.floor(el);play(['tick'])}
+  if(owner==me.id&&el<secs&&secs-el<=5&&Math.floor(el)!==tickN){tickN=Math.floor(el);play(['tick']);if(secs-el>4)dsay('Do hurry up, darling! ⏱️',2500)}
   if(el>=secs+(owner==me.id?0:2.5)&&!busy){busy=true;autoAct().finally(()=>{busy=false})}
 },1000);
 
 /* ---------- dealer + dealing animation ---------- */
-const DEALER_SVG=`<svg viewBox="0 0 60 66" aria-hidden="true"><path d="M10 30c0-16 8-24 20-24s20 8 20 24c0 10-2 22-6 30H16c-4-8-6-20-6-30z" fill="#2a1a1f"/><rect x="26" y="40" width="8" height="10" fill="#e3b78f"/><path d="M8 66c0-12 9-18 22-18s22 6 22 18z" fill="#15151b" stroke="#d4af37" stroke-width="1"/><path d="M24 48l6 12 6-12z" fill="#f7f2e4"/><path d="M24 52l6 3-6 3zM36 52l-6 3 6 3z" fill="#c0392b"/><circle cx="30" cy="30" r="14" fill="#f1c9a5"/><path d="M16 28c2-12 10-15 16-14 7 1 12 6 12 14-4-6-9-8-15-8s-10 3-13 8z" fill="#2a1a1f"/><circle cx="25" cy="31" r="1.6" fill="#222"/><circle cx="35" cy="31" r="1.6" fill="#222"/><circle cx="22" cy="35" r="2.2" fill="#e88" opacity=".5"/><circle cx="38" cy="35" r="2.2" fill="#e88" opacity=".5"/><path d="M26 37q4 4 8 0" stroke="#c0392b" stroke-width="2.2" fill="none" stroke-linecap="round"/></svg>`;
+const DEALER_SVG=`<svg viewBox="0 0 120 150" aria-hidden="true"><defs>
+<radialGradient id="dSk" cx=".5" cy=".42" r=".65"><stop offset="0" stop-color="#fde6d3"/><stop offset=".7" stop-color="#f3cdb0"/><stop offset="1" stop-color="#dcab8b"/></radialGradient>
+<linearGradient id="dNk" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#d3a283"/><stop offset="1" stop-color="#f0c8aa"/></linearGradient>
+<linearGradient id="dHr" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#34252a"/><stop offset=".5" stop-color="#150d0f"/><stop offset="1" stop-color="#050304"/></linearGradient>
+<radialGradient id="dIr" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#bfeaf0"/><stop offset=".7" stop-color="#4f9fb4"/><stop offset="1" stop-color="#143a46"/></radialGradient>
+<linearGradient id="dVs" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2b2b35"/><stop offset="1" stop-color="#0c0c10"/></linearGradient>
+<linearGradient id="dSh" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f6f3ec"/><stop offset="1" stop-color="#cfc9b9"/></linearGradient>
+<linearGradient id="dBt" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#d1303f"/><stop offset="1" stop-color="#8e1a26"/></linearGradient>
+<pattern id="dCb" width="4" height="4" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="4" height="4" fill="#1b1b24"/><rect width="2" height="4" fill="#33334a"/></pattern>
+<clipPath id="dEL"><ellipse cx="49" cy="58" rx="6.8" ry="4.3"/></clipPath>
+<clipPath id="dER"><ellipse cx="71" cy="58" rx="6.8" ry="4.3"/></clipPath></defs>
+<path d="M27 58C16 22 40 6 60 6S104 22 93 58C101 84 97 114 106 138L14 138C23 114 19 84 27 58z" fill="url(#dHr)"/>
+<path d="M49 88h22l2 24H47z" fill="url(#dNk)"/>
+<g class="torso"><path d="M4 150C4 120 26 108 60 108s56 12 56 42z" fill="url(#dVs)" stroke="#d4af37" stroke-width=".8"/>
+<path d="M46 108L60 134 74 108z" fill="url(#dNk)"/><path d="M46 108L60 134M74 108L60 134" stroke="#d4af37" stroke-width=".9" fill="none"/>
+<path d="M49 103Q60 109 71 103" stroke="#d4af37" stroke-width="1.4" fill="none" stroke-linecap="round"/>
+<circle cx="60" cy="108" r="1.8" fill="#d1233a" stroke="#f1d37a" stroke-width=".6"/></g>
+<g class="head">
+<path d="M34 62C24 88 29 114 17 138C37 130 43 100 40 70z" fill="url(#dHr)"/><path d="M86 62C96 88 91 114 103 138C83 130 77 100 80 70z" fill="url(#dHr)"/>
+<path d="M33 56C33 34 46 25 60 25S87 34 87 56C87 76 74 94 60 97 46 94 33 76 33 56z" fill="url(#dSk)"/>
+<ellipse cx="40" cy="72" rx="6" ry="4" fill="#e8806e" opacity=".32"/><ellipse cx="80" cy="72" rx="6" ry="4" fill="#e8806e" opacity=".32"/>
+<ellipse cx="60" cy="38" rx="14" ry="5" fill="#fff" opacity=".1"/>
+<ellipse cx="49" cy="57" rx="9" ry="6" fill="#8a4a6a" opacity=".26"/><ellipse cx="71" cy="57" rx="9" ry="6" fill="#8a4a6a" opacity=".26"/>
+<path d="M31 56C27 30 42 16 62 17C80 18 92 32 88 56C86 44 80 36 72 34C62 40 48 38 40 36C34 42 32 48 31 56z" fill="url(#dHr)"/>
+<path d="M44 26Q58 20 74 26" stroke="#6a5144" stroke-width="1.2" fill="none" opacity=".6"/>
+<path class="brow" d="M41 52Q49 44.5 57 50" stroke="#1a110e" stroke-width="2" fill="none" stroke-linecap="round"/>
+<path class="brow" d="M63 50Q71 44.5 79 52" stroke="#1a110e" stroke-width="2" fill="none" stroke-linecap="round"/>
+<g><ellipse cx="49" cy="58" rx="6.8" ry="4.3" fill="#fbf8f2"/><g clip-path="url(#dEL)"><g class="pup"><circle cx="49" cy="58" r="3.5" fill="url(#dIr)"/><circle cx="49" cy="58" r="1.6" fill="#0a0604"/><circle cx="50.2" cy="56.8" r=".9" fill="#fff" opacity=".9"/></g></g>
+<ellipse class="lid lidL" cx="49" cy="57.2" rx="7.2" ry="5" fill="#f0c4a2"/><path d="M41.8 58.2Q49 52 56.2 58.2M41.8 58.2L38.4 55.4" fill="none" stroke="#120b0a" stroke-width="2" stroke-linecap="round"/><path d="M43 61Q49 64 55 61" stroke="#b9805b" stroke-width=".6" opacity=".5" fill="none"/></g>
+<g><ellipse cx="71" cy="58" rx="6.8" ry="4.3" fill="#fbf8f2"/><g clip-path="url(#dER)"><g class="pup"><circle cx="71" cy="58" r="3.5" fill="url(#dIr)"/><circle cx="71" cy="58" r="1.6" fill="#0a0604"/><circle cx="72.2" cy="56.8" r=".9" fill="#fff" opacity=".9"/></g></g>
+<ellipse class="lid lidR" cx="71" cy="57.2" rx="7.2" ry="5" fill="#f0c4a2"/><path d="M63.8 58.2Q71 52 78.2 58.2M78.2 58.2L81.6 55.4" fill="none" stroke="#120b0a" stroke-width="2" stroke-linecap="round"/><path d="M65 61Q71 64 77 61" stroke="#b9805b" stroke-width=".6" opacity=".5" fill="none"/></g>
+<path d="M60 58C58 66 55 71 54.5 74C57 77 63 77 65.5 74C65 71 62 66 60 58" fill="none" stroke="#b9825d" stroke-width="1.3" stroke-linecap="round"/>
+<circle cx="57" cy="75" r=".9" fill="#7a4a30"/><circle cx="63" cy="75" r=".9" fill="#7a4a30"/>
+<path class="m-n" d="M50.5 86Q55 83 60 85Q65 83 69.5 86Q60 93 50.5 86z" fill="#d1233a" stroke="#a3162a" stroke-width=".6" stroke-linejoin="round"/>
+<path class="m-s" d="M50 85Q60 95 70 85Q60 88 50 85z" fill="#f7f2e4" stroke="#d1233a" stroke-width="2" stroke-linejoin="round"/>
+<ellipse class="m-w" cx="60" cy="88" rx="4" ry="5" fill="#5a1a1c" stroke="#d1233a" stroke-width="1.6"/>
+<circle cx="34" cy="76" r="3" fill="none" stroke="#d4af37" stroke-width="1.1"/><circle cx="86" cy="76" r="3" fill="none" stroke="#d4af37" stroke-width="1.1"/>
+<ellipse class="m-t" cx="60" cy="87.5" rx="4.2" ry="1.4" fill="#5a1a1c" stroke="#d1233a" stroke-width="1.4"/>
+</g>
+<g class="deck"><rect x="14" y="126" width="16" height="20" rx="2" fill="url(#dCb)" stroke="#d4af37" stroke-width=".7"/><rect x="15.5" y="124.5" width="16" height="20" rx="2" fill="url(#dCb)" stroke="#d4af37" stroke-width=".7"/><ellipse cx="22" cy="146" rx="8.5" ry="5" fill="#e8b690"/><circle cx="15" cy="143" r="1.1" fill="#d1233a"/><circle cx="17.5" cy="141.5" r="1.1" fill="#d1233a"/><ellipse cx="18" cy="142" rx="3" ry="2.2" fill="#ebb994"/></g>
+<g class="hand"><rect x="88" y="124" width="14" height="20" rx="2" fill="url(#dCb)" stroke="#d4af37" stroke-width=".7" transform="rotate(14 95 134)"/><ellipse cx="92" cy="141" rx="7.5" ry="5.5" fill="#e8b690"/><circle cx="99" cy="134" r="1.1" fill="#d1233a"/><circle cx="96.5" cy="132.5" r="1.1" fill="#d1233a"/><ellipse cx="97" cy="137" rx="3.5" ry="2.6" fill="#ebb994"/></g>
+</svg>`;
 // Put your own picture next to index.html with this name. If the file is missing, the drawn dealer above is used.
 const DEALER_IMG='dealer.png';
 let dealerOk=false;
 {const im=new Image();im.onload=()=>{dealerOk=true;if(G&&G.phase!='closed')render()};im.src=DEALER_IMG}
-const dealerH=()=>`<div class="dealerRow"><div class="dealer" id="dealer">${dealerOk?`<img src="${DEALER_IMG}" alt="">`:DEALER_SVG}</div></div>`;
+let sayT='',sayUntil=0,dPrev=null,dEx='',dExUntil=0,dWinkUntil=0,dLook={x:0,y:0,h:0},ptr=null,taps=[],lkT=0,voiceOn=ls('tp_voice')=='1';
+const pick=a=>a[Math.floor(Math.random()*a.length)];
+const talking=()=>Date.now()<sayUntil;
+const dealerH=()=>{
+  const now=Date.now(),on=now<sayUntil,ex=now<dExUntil?dEx:'';
+  const cls='dealer'+(on?' talk':'')+(ex?' ex-'+ex:'')+(now<dWinkUntil?' wink':'');
+  return `<div class="dealerRow"><div class="${cls}" id="dealer" data-a="dealer" style="--lx:${dLook.x};--ly:${dLook.y};--hd:${dLook.h}">${dealerOk?`<img src="${DEALER_IMG}" alt="">`:DEALER_SVG}${on?`<div class="dsay">${esc(sayT)}</div>`:''}</div></div>`};
+function dealerPatch(){
+  const d=$('dealer');if(!d)return;
+  const now=Date.now(),on=now<sayUntil,ex=now<dExUntil?dEx:'',o=d.querySelector('.dsay');
+  d.classList.toggle('talk',on);
+  ['smile','wow'].forEach(x=>d.classList.toggle('ex-'+x,ex==x));
+  if(o&&(!on||o.textContent!=sayT))o.remove();
+  if(on&&!d.querySelector('.dsay')){const b=document.createElement('div');b.className='dsay';b.textContent=sayT;d.appendChild(b)}
+}
+function enVoices(){
+  const vs=speechSynthesis.getVoices(),gb=vs.filter(x=>/en[-_]GB/i.test(x.lang));
+  return gb.length?gb:vs.filter(x=>/^en/i.test(x.lang));
+}
+const MALE=/\bmale\b|daniel|oliver|arthur|george|ryan|thomas|james|harry|alfie|rishi|gbb|gbd|rjs|\bmale/i,FEM=/female|serena|kate|martha|libby|sonia|hazel|susan|amy|emma|stephanie|gba|gbc|fis|samantha|karen|tessa|moira|zira/i;
+function pickVoice(){
+  const L=enVoices(),id=x=>x.name+' '+x.voiceURI;
+  return L.find(x=>FEM.test(id(x))&&!MALE.test(id(x)))||L.find(x=>!MALE.test(id(x)))||L[0]||null;
+}
+function speak(t){
+  if(!voiceOn||muted||!globalThis.speechSynthesis)return;
+  const clean=t.replace(/[\u{1F000}-\u{1FFFF}\u{2600}-\u{27BF}\u{FE0F}]/gu,'').trim();
+  if(!clean)return;
+  try{
+    speechSynthesis.cancel();
+    const u=new SpeechSynthesisUtterance(clean.replace(/,\s*/g,', ... ').replace(/([!?.])\s+/g,'$1 ... '));
+    const v=pickVoice(),sure=v&&FEM.test(v.name+' '+v.voiceURI)&&!MALE.test(v.name+' '+v.voiceURI);
+    u.lang='en-GB';u.rate=.88;u.pitch=sure?1.12:1.45;u.volume=Math.max(0.1,vol);
+    if(v){u.voice=v;u.lang=v.lang}
+    speechSynthesis.speak(u);
+  }catch(e){}
+}
+function dsay(t,ms=3200){sayT=t;sayUntil=Date.now()+ms;dealerPatch();setTimeout(dealerPatch,ms+60);speak(t)}
+function dEmote(ex,ms=2500){dEx=ex;dExUntil=Date.now()+ms;dealerPatch();setTimeout(dealerPatch,ms+60)}
+function dWink(){
+  dWinkUntil=Date.now()+800;const d=$('dealer');if(!d)return;
+  d.classList.remove('wink');void d.offsetWidth;d.classList.add('wink');setTimeout(()=>{const e=$('dealer');e&&e.classList.remove('wink')},850);
+}
+function toggleVoice(){
+  voiceOn=!voiceOn;ls('tp_voice',voiceOn?'1':'0');$('vcBtn').style.opacity=voiceOn?1:.4;unlock();
+  if(voiceOn){if(muted)toggleMute();dEmote('smile',2500);dsay('Hello, darling. I\'ll be your dealer tonight. 😉',3400)}
+  else if(globalThis.speechSynthesis)speechSynthesis.cancel();
+}
+// The dealer's eyes and head follow whoever is acting, the winner, or your finger/cursor.
+function dealerLook(){
+  const d=$('dealer');if(!d||!G)return;
+  const r=d.getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height*0.4;
+  let tx=cx,ty=cy+240,el=null;
+  if(ptr&&Date.now()-ptr.t<2600){tx=ptr.x;ty=ptr.y}
+  else{
+    if(G.phase=='play'&&G.players[G.turn])el=app.querySelector('[data-pid="'+G.players[G.turn].id+'"]');
+    else if(G.phase=='over'&&G.result&&G.players[G.result.w])el=app.querySelector('[data-pid="'+G.players[G.result.w].id+'"]');
+    if(el){const q=el.getBoundingClientRect();tx=q.left+q.width/2;ty=q.top+q.height/2}
+  }
+  const dx=tx-cx,dy=ty-cy,dist=Math.hypot(dx,dy)||1,k=Math.min(1,dist/200);
+  dLook={x:+(dx/dist*2.8*k).toFixed(2),y:+(dy/dist*1.8*k).toFixed(2),h:+Math.max(-7,Math.min(7,dx/45)).toFixed(1)};
+  d.style.setProperty('--lx',dLook.x);d.style.setProperty('--ly',dLook.y);d.style.setProperty('--hd',dLook.h);
+}
+function dealerReact(){
+  const cur=G.players[G.turn],n={round:G.round,phase:G.phase,tid:G.tid||0,evn:G.evn||0},o=dPrev;
+  dPrev=n;if(!o)return;
+  if(n.phase=='play'&&(n.round>o.round||o.phase!='play')){dEmote('smile',3000);dsay(pick(['Cards are out. Good luck, darlings! 🍀','The boot is in. Shall we play?','Teen Patti time, my lovelies! 🎴']));return}
+  if(o.phase=='play'&&n.phase=='over'&&G.result){
+    const R=G.result,w=G.players[R.w],r=(R.roy||[])[0];
+    if(r){dEmote('wow',3800);dsay(G.players[r.h].name+' has a '+r.hn+'! Royalty 👑',3800)}
+    else{dEmote('smile',3400);dsay(pick([w.name+' takes the pot of '+R.pot+' 💰','Well played, '+w.name+'! 👏']),3800)}
+    return}
+  const m=n.evn-o.evn;
+  if(m>0&&G.evs&&n.phase=='play'){
+    const ks=G.evs.slice(-Math.min(m,12));
+    if(ks.includes('buzz')){dEmote('wow',1800);dsay('Time out! ⏱️',2200);return}
+    if(ks.includes('stack')){dEmote('wow',2000);if(!talking())dsay(pick(['The stakes just went up! 🔥','Ooh, a raise. Lovely! 😮']),2400)}
+    else if(ks.includes('fold')&&!talking()&&Math.random()<.5)dsay(pick(['Folded! One fewer to worry about.','Getting cold feet, are we? 😄']),2200);
+    else if(G.pot>=G.cfg.boot*20&&!talking()&&Math.random()<.3){dEmote('wow',1800);dsay('The pot has reached '+G.pot+'! 💰',2400)}
+  }
+  if(n.phase=='play'&&cur&&cur.id==me.id&&!cur.packed&&n.tid!==o.tid&&!talking())dsay(pick(['Your move, darling. 😉','Your turn, gorgeous. 🎯','Do take your time... but not too much.']),2500);
+}
+function dealerChat(x){
+  const m=x.m||'';
+  if(/jaldi|hurry/i.test(m)&&!talking()){dEmote('wow',1500);dsay('Quite right, do hurry along! ⏱️',2400)}
+  else if(x.r&&/😂|🔥|😍|🤩|👏|👍/.test(m))dEmote('smile',1800);
+  else if(x.r&&/😮|😬|😭/.test(m))dEmote('wow',1800);
+}
+function dealerTap(){
+  const now=Date.now(),p=G?G.pot:0;
+  taps=taps.filter(t=>now-t<5000);taps.push(now);
+  if(taps.length>=4){taps=[];dEmote('wow',2200);dsay('Oh, do stop poking me! Let me deal. 😅',2800);return}
+  dEmote('smile',2200);dWink();
+  dsay(pick(['I\'m a perfectly honest dealer, I promise. 😇','Do check your cards before you bet. 😉','Play blind, darling. It\'s far more thrilling. 😎','Fold if you\'re feeling faint-hearted. 😄'].concat(p>0?['The pot is '+p+' now! 💰']:[])),2800);
+}
+['pointermove','pointerdown'].forEach(t=>document.addEventListener(t,e=>{ptr={x:e.clientX,y:e.clientY,t:Date.now()};if(Date.now()-lkT>80){lkT=Date.now();dealerLook()}},{passive:true}));
+setInterval(dealerLook,700);
+setInterval(()=>{if(!G||G.phase=='closed'||talking()||document.hidden)return;if((G.phase=='lobby'||G.phase=='over')&&Math.random()<.5)dsay(pick(['Is anyone joining? The table is ready. 🎴','Do have a cup of tea, then we\'ll play. ☕','Have your boot ready, darlings. 💰']),3200)},24000);
 function dealAnim(){
   const dl=$('dealer');if(!dl)return;
   const d=dl.getBoundingClientRect(),sx=d.left+d.width/2,sy=d.top+d.height*0.7;
@@ -601,7 +764,7 @@ function settleH(){
 }
 function render(){
   if(!G)return;
-  tk();renderChat();sndDiff();
+  tk();renderChat();sndDiff();dealerReact();
   const mi0=idx(),mp0=G.players[mi0],gone0=(G.gone||[]).some(x=>x.id==me.id)&&mi0<0&&!inWait();
   if(G.phase=='closed'||(mp0&&mp0.left)||gone0){app.innerHTML=finalH(G.phase=='closed');return}
   let nd=false;
@@ -628,7 +791,7 @@ function render(){
   if(p)h+=`<div class="panel hf"><button class="dng" data-a="exit">Exit table</button>${G.host==me.id?`${G.round?'<button class="dng" data-a="reset">Reset game</button>':''}${play?'':'<button class="dng" data-a="close">Close game</button>'}<div class="mu">Close ends the game for everyone and shows who owes whom${play?' (available between rounds)':''}. Reset starts everyone fresh and forgets the settlement.</div>`:''}</div>`;
   h+=`<div class="panel log hf">${G.log.slice(-6).reverse().map(esc).join('<br>')}</div>
   <details class="panel hf"><summary>Hand ranking</summary><div class="mu" style="margin-top:6px">1 Trail (AAA … 222)<br>2 Pure sequence<br>3 Sequence<br>Both sequences: 235 highest, then AKQ, A23, KQJ … 234; same sequence → higher suit of top card<br>4 Colour (compare card by card, then suit)<br>5 Pair (then third card, then suit of the pair’s higher card)<br>6 High card<br>Suits: ♠ › ♥ › ♦ › ♣</div></details>`;
-  app.innerHTML=h;just=false;if(nd)dealAnim();
+  app.innerHTML=h;just=false;if(nd)dealAnim();dealerLook();
 }
 document.addEventListener('click',e=>{
   const q=e.target.closest('[data-q]');if(q){$('rxPop').hidden=true;if(G)sendMsg(q.dataset.q,true);return}
@@ -636,6 +799,8 @@ document.addEventListener('click',e=>{
   if(a=='rx'){$('rxPop').hidden=!$('rxPop').hidden;return}
   if(a=='mute'){toggleMute();return}
   if(a=='fs'){toggleFs();return}
+  if(a=='dealer'){dealerTap();return}
+  if(a=='voice'){toggleVoice();return}
   if(a=='join')return enter('join');
   if(a=='spec')return enter('spec');
   if(!G)return;
@@ -648,6 +813,6 @@ document.addEventListener('input',e=>{
   $('rl').textContent=rs;$('rc').textContent=p.seen?2*rs:rs;
 });
 document.addEventListener('keydown',e=>{if(e.key=='Enter'&&e.target.id=='chIn')sendChat()});
-$('muBtn').textContent=muted?'🔇':'🔊';
+$('muBtn').textContent=muted?'🔇':'🔊';$('vcBtn').style.opacity=voiceOn?1:.4;
 login();
 </script></body></html>
