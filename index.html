@@ -306,6 +306,7 @@ async function exitGame(){
 }
 async function closeAfterToggle(){
   if(G.host!=me.id||G.phase!='play')return;
+  if(G.closeAfter&&!confirm('Cancel closing? The game will keep going after this round.'))return;
   for(let t=0;t<4;t++){
     if(G.phase!='play')return;
     G.closeAfter=!G.closeAfter;lg(G.closeAfter?'Host will close the game after this round':'Host cancelled closing');
@@ -620,14 +621,15 @@ function settleH(){
   return `<details class="panel hf" ${G.phase=='over'?'open':''}><summary>Settle up</summary>${settleBody()}</details>`;
 }
 let ovPrev=null;
-// 3-second overlay for everyone when a round ends in a show
+// Overlay for everyone when a round ends in a show: lasts (next hand timer - 1) seconds, 3s if the timer is off
 function showOverlay(){
   const R=G.result,ps=G.players.map((q,i)=>i).filter(i=>!G.players[i].packed&&G.players[i].cards);
   if(!R||ps.length<2)return;
   const old=$('ovShow');if(old)old.remove();
   const d=document.createElement('div');d.id='ovShow';d.className='ov';
   d.innerHTML=`<div class="ovb"><div class="gl">Show</div>${ps.map(i=>{const q=G.players[i],w=i==R.w;return `<div class="ovr ${w?'win':''}"><div>${w?'🏆 ':''}<b>${esc(q.name)}</b> · ${hname(q.cards)}${w?' · wins '+R.pot:''}</div><div class="cs">${q.cards.map(c=>cardH(c,false,false)).join('')}</div></div>`}).join('')}</div>`;
-  document.body.appendChild(d);setTimeout(()=>d.remove(),3000);
+  const ns=G.cfg.nextSecs||0,ms=ns>0?Math.max(1,ns-1)*1000:3000;
+  document.body.appendChild(d);setTimeout(()=>d.remove(),ms);
 }
 function render(){
   if(!G)return;
