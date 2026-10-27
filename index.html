@@ -16,6 +16,7 @@ input{width:100%;padding:11px;margin:4px 0 8px;border:1px solid var(--bd);border
 input[type=range]{padding:0;accent-color:var(--go)}
 button{padding:13px 16px;border:0;border-radius:10px;font-size:16px;font-weight:600;margin:4px 4px 0 0;background:#2a2a35;color:var(--tx)}
 button.pri{background:linear-gradient(var(--go2),var(--go));color:#1a1405}button.dng{background:#5a2a26}button:disabled{opacity:.35}
+body.busy #ctl button{opacity:.45;pointer-events:none}
 .g2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 #ctl{text-align:center}#ctl button{margin:4px 3px 0}#ctl .g2{text-align:left}
 .table{position:relative;width:100%;aspect-ratio:1/1;height:auto;margin:84px 0 6px}
@@ -76,9 +77,12 @@ details summary{cursor:pointer;color:var(--go)}
 .ovb{background:var(--pn);border:1px solid var(--go);border-radius:16px;padding:12px 16px;text-align:center;max-width:92vw}
 .ovr{margin:8px 0;padding:6px;border-radius:12px;border:1px solid transparent}.ovr.win{border-color:var(--ok);box-shadow:0 0 16px var(--ok)}
 @keyframes ovin{from{opacity:0}to{opacity:1}}
+#toast{position:fixed;left:50%;top:calc(62px + env(safe-area-inset-top,0px));transform:translateX(-50%);max-width:90vw;background:#3a1d1a;border:1px solid var(--rd);color:var(--tx);padding:8px 14px;border-radius:12px;z-index:95;font-size:14px;text-align:center;opacity:0;pointer-events:none;transition:opacity .2s}
+#toast.on{opacity:1}
 body.fsm h1,body.fsm .hf{display:none}body.fsm main{padding-top:4px}
 </style></head><body><main><div class="bar"><button id="muBtn" data-a="mute" aria-label="Sound">🔊</button><span class="sp"></span><button id="fsBtn" data-a="fs" aria-label="Full screen">⛶</button></div>
 <div id="app"></div></main>
+<div id="toast"></div>
 <button id="rxBtn" data-a="rx" aria-label="Reactions">😀</button>
 <button id="chBtn" data-a="chat" aria-label="Chat">💬<span id="chBadge"></span></button>
 <div id="rxPop" hidden><button data-q="👍">👍</button><button data-q="😂">😂</button><button data-q="😭">😭</button><button data-q="😮">😮</button><button data-q="👏">👏</button><button data-q="🔥">🔥</button><button data-q="😬">😬</button><button data-q="Nice Hand 🤩">Nice Hand 🤩</button><button data-q="BC 😒">BC 😒</button><button data-q="Jaldi Khel Bhai ⏱️">Jaldi Khel Bhai ⏱️</button><button data-q="Good game 😍">Good game 😍</button></div>
@@ -87,33 +91,32 @@ body.fsm h1,body.fsm .hf{display:none}body.fsm main{padding-top:4px}
 <div class="chf"><input id="chIn" maxlength="200" placeholder="Message…" enterkeyhint="send" autocomplete="off"><button class="pri" data-a="send">Send</button></div></div>
 <script>
 const SUPABASE_URL='https://xshnochrinvblixkhiny.supabase.co',SUPABASE_KEY='sb_publishable_RnWG0MJ3dEBOzl1Hfib51Q_WqwcwF7R';
+const FN=SUPABASE_URL+'/functions/v1/game';
 const SU=['♣','♦','♥','♠'],RN={11:'J',12:'Q',13:'K',14:'A'},rn=r=>RN[r]||r;
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-// Hand scoring: arrays compared left to right. Suits: spade 4 > heart 3 > diamond 2 > club 1.
+// Only used to NAME a hand on screen. The server does all the real scoring and dealing.
 function score(h){
   const c=h.slice().sort((a,b)=>b[0]-a[0]||b[1]-a[1]),r=c.map(x=>x[0]),top=c[0][1];
   const flush=c.every(x=>x[1]==top);
   if(r[0]==r[2])return[7,r[0]];
   let seq=null;
-  if(r[0]==5&&r[1]==3&&r[2]==2)seq=1000;            // 235 is the top sequence
-  else if(r[0]==14&&r[1]==3&&r[2]==2)seq=13.5;       // A23 sits just below AKQ
-  else if(r[0]-r[1]==1&&r[1]-r[2]==1)seq=r[0];       // AKQ=14 ... 432=4
+  if(r[0]==5&&r[1]==3&&r[2]==2)seq=1000;
+  else if(r[0]==14&&r[1]==3&&r[2]==2)seq=13.5;
+  else if(r[0]-r[1]==1&&r[1]-r[2]==1)seq=r[0];
   if(flush&&seq!==null)return[6,seq,top];
   if(seq!==null)return[5,seq,top];
   if(flush)return[4,...r,top];
-  if(r[0]==r[1]||r[1]==r[2]){const pc=c.filter(x=>x[0]==r[1]);return[3,r[1],r[0]==r[1]?r[2]:r[0],Math.max(...pc.map(x=>x[1]))];}
-  return[2,...r,top];
+  if(r[0]==r[1]||r[1]==r[2])return[3];
+  return[2];
 }
-const cmp=(a,b)=>{for(let i=0;i<Math.max(a.length,b.length);i++){const d=(a[i]||0)-(b[i]||0);if(d)return d}return 0};
 const hname=h=>['','','High card','Pair','Colour','Sequence','Pure sequence','Trail'][score(h)[0]];
 
 const $=id=>document.getElementById(id),app=$('app');
 const ls=(k,v)=>{try{if(v===undefined)return localStorage.getItem(k);localStorage.setItem(k,v)}catch(e){return null}};
-let G=null,me={id:null,name:''},sb,code,ver=-1,just=false,rs=0,draft=null,tuv='',flipT=0,dealT=0,hs='',animRound=-1;
+let G=null,me={id:null,name:''},sb,code,ver=-1,hand=null,rs=0,draft=null,tuv='',flipT=0,dealT=0,hs='',animRound=-1;
+let busy=false,skew=null,lastKey=null,fails=0,fbN=0,started=false,spectate=false;
 const idx=()=>G.players.findIndex(p=>p.id==me.id),inWait=()=>(G.wait||[]).some(p=>p.id==me.id);
 const live=()=>G.players.map((p,i)=>i).filter(i=>!G.players[i].packed);
-const lg=s=>{G.log.push(s);if(G.log.length>30)G.log.shift()};
-const ev=k=>{G.evs=(G.evs||[]).concat([k]).slice(-12);G.evn=(G.evn||0)+1};
 const cardH=(c,hide,sm,ci=0)=>{
   const now=Date.now();
   if(hide){const dl=!sm&&now<dealT+1500;return `<div class="c bk ${sm?'sm':''} ${dl?'dl':''}" ${dl?`style="animation-delay:${(0.5+ci*0.12-(now-dealT)/1000).toFixed(2)}s"`:''}></div>`}
@@ -122,26 +125,105 @@ const cardH=(c,hide,sm,ci=0)=>{
   return `<div class="fc" style="animation-delay:${(ci*0.12-(now-flipT)/1000).toFixed(2)}s"><div class="c ${red}">${txt}</div><div class="c bk bsd"></div></div>`;
 };
 
-/* ---------- database ---------- */
-async function save(){
-  render();
-  const r=await sb.from('rooms').update({state:G,version:ver+1}).eq('code',code).eq('version',ver).select('version');
-  if(r.error){alert('Save failed: '+r.error.message);return false}
-  if(!r.data.length){await pull(true);return false}
-  ver=r.data[0].version;return true;
+/* ---------- talking to the server ---------- */
+let toastT=0;
+function toast(m,long){const t=$('toast');t.textContent=m;t.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('on'),long?5000:2500)}
+async function token(){
+  let s=await sb.auth.getSession();
+  if(!s.data.session){const a=await sb.auth.signInAnonymously();if(a.error)throw a.error;s=await sb.auth.getSession()}
+  return s.data.session.access_token;
 }
-async function pull(force){
-  const r=await sb.from('rooms').select('state,version').eq('code',code).maybeSingle();
-  if(r.error||!r.data)return;
-  if(force||r.data.version!==ver){G=r.data.state;ver=r.data.version;render()}
+// One request to the "game" function. Always resolves with {ok, state, version, mine, error...}
+async function call(action,extra,again){
+  let res,r;
+  try{
+    const ctl=new AbortController(),to=setTimeout(()=>ctl.abort(),15000);
+    try{
+      r=await fetch(FN,{method:'POST',signal:ctl.signal,headers:{'Content-Type':'application/json',apikey:SUPABASE_KEY,Authorization:'Bearer '+await token()},body:JSON.stringify({...(extra||{}),code,name:me.name,action})});
+      res=await r.json();
+    }finally{clearTimeout(to)}
+  }catch(e){return{ok:false,net:true,error:'Connection problem. Check your internet and try again.'}}
+  if(!res||res.ok===undefined)return{ok:false,error:(res&&(res.message||res.msg))||'Server error ('+(r?r.status:'?')+')'};
+  if(res.auth&&!again){try{await sb.auth.refreshSession()}catch(e){}return call(action,extra,true)}
+  return res;
 }
+// Server clock vs this phone's clock: the smallest gap seen when a turn just changed
+function evTime(){return G.phase=='play'?(G.turnAt||0):G.phase=='over'?(G.nextAt||0)-(G.cfg.nextSecs||0)*1000:0}
+function sample(){const t=evTime();if(!t)return;const d=Date.now()-t;skew=skew===null?d:Math.min(skew,d)}
+function elapsed(){const t=evTime();return t?Math.max(0,(Date.now()-t-(skew||0))/1000):0}
+const leftNext=()=>Math.max(0,Math.ceil((G.cfg.nextSecs||0)-elapsed()));
+const leftSecs=()=>Math.max(0,Math.ceil((G.cfg.turnSecs||0)-elapsed()));
+// Take in a server answer (only if it is not older than what we already show)
+function apply(res){
+  if(!res)return;
+  let ch=false;
+  if(res.state&&res.version!=null&&res.version>=ver&&(res.version!==ver||!G)){
+    if(G&&res.state.round<G.round)hand=null; // game was reset
+    const key=res.state.round+':'+(res.state.tid||0)+':'+res.state.phase,first=lastKey===null;
+    G=res.state;ver=res.version;ch=true;
+    if(!first&&key!==lastKey)sample();
+    lastKey=key;
+  }
+  if(res.mine&&JSON.stringify(res.mine)!==JSON.stringify(hand)&&(!hand||res.mine.round>=hand.round||(G&&G.round<hand.round))){hand=res.mine;ch=true}
+  if(ch)render();
+}
+// A player action: one at a time, answer applied straight away
+async function act(a,extra){
+  if(busy)return{ok:false};
+  busy=true;document.body.classList.add('busy');
+  try{const res=await call(a,extra);if(!res.ok&&res.error)toast(res.error,res.alert);apply(res);return res}
+  finally{busy=false;document.body.classList.remove('busy')}
+}
+const doAct=(a,v)=>act(a,v===undefined?{}:{v});
+// Read the public table state (it holds no cards). If that ever fails, ask the function instead.
+let pollBusy=false;
+async function poll(){
+  if(pollBusy||!G)return;pollBusy=true;
+  try{
+    if(fails<3){
+      const r=await sb.from('rooms').select('state,version').eq('code',code).maybeSingle();
+      if(r.error||!r.data)fails++;else{fails=0;apply({state:r.data.state,version:r.data.version})}
+    }else{apply(await call('tick'));if(++fbN%20==0)fails=0}
+  }catch(e){fails++}
+  pollBusy=false;
+}
+// My own cards come only from the server, and only after I have looked (or the round is over)
+let cardsBusy=false,cardsNext=0,cardTry={r:-1,n:0};
+function needCards(){
+  if(!G||idx()<0)return false;const p=G.players[idx()];
+  if(!p||p.rd!==G.round||(hand&&hand.round===G.round))return false;
+  return(G.phase=='play'&&p.seen)||G.phase=='over';
+}
+function ensureCards(){
+  if(cardsBusy||Date.now()<cardsNext||!needCards())return;
+  if(cardTry.r!==G.round)cardTry={r:G.round,n:0};
+  if(++cardTry.n>8)return;
+  cardsBusy=true;cardsNext=Date.now()+2500;
+  call('cards').then(apply).finally(()=>{cardsBusy=false});
+}
+// When a timer has run out, nudge the server. It only acts if the time really is up.
+let tickBusy=false,tickNext=0,tickJ=Math.random(),tickN=-1;
+function maybeTick(){
+  if(tickBusy||Date.now()<tickNext)return;
+  let due=false;
+  if(G.phase=='play'&&G.cfg.turnSecs>0){
+    const cur=G.players[G.turn],mineT=cur&&cur.id==me.id;
+    due=elapsed()>=G.cfg.turnSecs+(mineT?0.5:2+tickJ);
+  }else if(G.phase=='over'&&G.cfg.nextSecs>0&&G.players.filter(p=>!p.left).length+(G.wait||[]).length>=2){
+    due=elapsed()>=G.cfg.nextSecs+(G.host==me.id?0.5:2+tickJ);
+  }
+  if(!due)return;
+  tickBusy=true;tickNext=Date.now()+3000;
+  call('tick').then(apply).finally(()=>{tickBusy=false});
+}
+
+/* ---------- join ---------- */
 function login(){
   app.innerHTML=`<div class="panel"><div class="gl">Join a table</div>
   <input id="nm" placeholder="Your name" maxlength="14" value="${esc(ls('tp_n')||'')}">
   <input id="rm" placeholder="Room code (any word, share with friends)" maxlength="20" value="${esc(ls('tp_r')||'')}">
   <button class="pri" data-a="join">Join game</button><button data-a="spec">Spectate</button></div>`;
 }
-let spectate=false;
 const isSpec=()=>G&&idx()<0&&!inWait()&&(G.spec||[]).some(x=>x.id==me.id);
 async function enter(mode){
   const nmE=$('nm'),rmE=$('rm');
@@ -149,73 +231,18 @@ async function enter(mode){
   spectate=mode=='spec';
   if(SUPABASE_URL.startsWith('PASTE')){app.innerHTML='<div class="panel">Add your Supabase URL and key at the top of the script in index.html.</div>';return}
   app.innerHTML='<div class="panel">Connecting…</div>';
-  sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
-  // Anonymous sign-in: lets the database tell signed-in players from strangers
-  const au=await sb.auth.getSession();
-  if(!au.data.session){
-    const a=await sb.auth.signInAnonymously();
-    if(a.error){app.innerHTML='<div class="panel"><div class="gl">Sign-in failed</div><div class="mu">'+esc(a.error.message)+'</div><button data-a="home">Back</button></div>';return}
-  }
-  me.id=ls('tp_id')||('p'+Math.random().toString(36).slice(2,10));ls('tp_id',me.id);
-  await pull(true);
-  if(!G){
-    G={phase:'lobby',round:0,cfg:{boot:500,start:1000,max:64000,rAAA:1000,rFace:750,rNum:500,maxBlind:2,turnSecs:40,nextSecs:5,maxPlayers:7},players:[],wait:[],host:me.id,log:[],stake:500,pot:0,turn:0,dealer:-1,side:null};
-    const r=await sb.from('rooms').insert({code,state:G,version:0});
-    if(r.error)await pull(true);else ver=0;
-  }
-  if(!spectate&&G&&G.phase!='closed'&&idx()>=0&&G.players[idx()].left){G.players[idx()].left=false;lg(me.name+' is back');await save()}
-  if(spectate&&G&&G.phase!='closed'){
-    for(let t=0;t<4&&G&&idx()<0&&!inWait()&&!(G.spec||[]).some(x=>x.id==me.id);t++){G.spec=(G.spec||[]).concat([{id:me.id,name:me.name}]);lg(me.name+' is watching');await save()}
-  }
-  for(let t=0;t<4&&!spectate&&G&&G.phase!='closed'&&idx()<0&&!inWait();t++){
-    if(G.cfg.maxPlayers&&G.players.filter(p=>!p.left).length+(G.wait||[]).length>=G.cfg.maxPlayers){
-      app.innerHTML='<div class="panel"><div class="gl">Table is full</div><div class="mu">This table allows '+G.cfg.maxPlayers+' players. Ask the host, or try another room code.</div><button class="pri" data-a="spec">Watch instead</button><button data-a="home">Back</button></div>';return}
-    G.spec=(G.spec||[]).filter(x=>x.id!=me.id);
-    (G.phase=='play'?G.wait:G.players).push({id:me.id,name:me.name,chips:G.cfg.start,buyin:G.cfg.start});
-    lg(me.name+' joined');await save();
-  }
-  render();setInterval(()=>pull(false),1500);
+  if(!sb)sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+  try{await token()}catch(e){app.innerHTML='<div class="panel"><div class="gl">Sign-in failed</div><div class="mu">'+esc(e.message||e)+'</div><button data-a="home">Back</button></div>';return}
+  // The player id is the sign-in id, so the server knows who is who
+  me.id=(await sb.auth.getSession()).data.session.user.id;
+  const res=await call('join',{spectate});
+  if(res.full){app.innerHTML='<div class="panel"><div class="gl">Table is full</div><div class="mu">This table is full. Ask the host, or try another room code.</div><button class="pri" data-a="spec">Watch instead</button><button data-a="home">Back</button></div>';return}
+  if(!res.state){app.innerHTML='<div class="panel"><div class="gl">Could not join</div><div class="mu">'+esc(res.error||'Unknown error')+'</div><button data-a="home">Back</button></div>';return}
+  apply(res);
+  if(!started){started=true;setInterval(poll,1500)}
 }
 
-/* ---------- game logic ---------- */
-function nextTurn(){let i=G.turn;do{i=(i+1)%G.players.length}while(G.players[i].packed);G.turn=i;G.tid=(G.tid||0)+1}
-function prevLive(i){let j=i;do{j=(j-1+G.players.length)%G.players.length}while(G.players[j].packed);return j}
-function pay(p,c){const sh=Math.max(0,c-p.chips);if(sh){p.chips+=sh;p.buyin+=sh;lg(p.name+' topped up '+sh+' to cover');ev('coin')}p.chips-=c;G.pot+=c}
-function transfer(q,h,c){const sh=Math.max(0,c-q.chips);if(sh){q.chips+=sh;q.buyin+=sh;lg(q.name+' topped up '+sh+' to cover');ev('coin')}q.chips-=c;h.chips+=c}
-function royAmt(p){const s=score(p.cards),c=G.cfg;if(s[0]!=7)return 0;return s[1]==14?(c.rAAA||0):s[1]>=11?(c.rFace||0):(c.rNum||0)}
-function finish(w,sh){
-  const p=G.players[w];p.chips+=G.pot;const roy=[];
-  G.players.forEach((h,hi)=>{
-    const amt=royAmt(h);if(!amt)return;let n=0;
-    G.players.forEach((q,qi)=>{if(qi==hi||(sh&&sh.taker==qi&&sh.target==hi))return;transfer(q,h,amt);n++});
-    if(n){roy.push({h:hi,amt,n,hn:hname(h.cards)});lg('Royalty: '+h.name+' ('+hname(h.cards)+') collects '+amt+' from '+n)}
-  });
-  G.result={w,pot:G.pot,show:!!sh,roy};lg(p.name+' wins '+G.pot);G.pot=0;G.phase='over';G.side=null;
-  processExits();
-}
-const rnd=n=>{if(typeof crypto=='undefined'||!crypto.getRandomValues)return Math.floor(Math.random()*n);const a=new Uint32Array(1),lim=Math.floor(4294967296/n)*n;do{crypto.getRandomValues(a)}while(a[0]>=lim);return a[0]%n};
-async function deal(auto){
-  if(G.closeAfter&&G.phase=='over'&&(auto||G.host==me.id)){G.phase='closed';G.closeAfter=false;lg('Game closed after the final round');await save();return}
-  if(auto){if(G.phase!='over'||G.players.filter(p=>!p.left).length+(G.wait||[]).length<2)return}
-  else if(G.host!=me.id)return;
-  G.gone=(G.gone||[]).concat(G.players.filter(p=>p.left).map(p=>({id:p.id,name:p.name,chips:p.chips,buyin:p.buyin})));
-  G.players=G.players.filter(p=>!p.left);G.dealer=Math.max(-1,Math.min(G.dealer,G.players.length-1));
-  if(G.phase=='lobby'){
-    const c={boot:+$('c_boot').value,start:+$('c_start').value,max:+$('c_max').value,rAAA:+$('c_aaa').value,rFace:+$('c_face').value,rNum:+$('c_num').value,maxBlind:+$('c_blind').value,turnSecs:+$('c_turn').value,nextSecs:+$('c_next').value,maxPlayers:+$('c_maxp').value};
-    if(!(c.boot>0&&c.start>0&&c.max>=2*c.boot&&c.rAAA>=0&&c.rFace>=0&&c.rNum>=0&&c.maxBlind>=0&&c.turnSecs>=0&&c.nextSecs>=0&&c.maxPlayers>=2&&c.maxPlayers<=10&&c.maxPlayers>=G.players.filter(p=>!p.left).length+(G.wait||[]).length)){alert('Check settings: max chaal must be at least 2 × boot, and max players must be between 2 and 10 (and not fewer than the players already here).');return}
-    G.cfg=c;draft=null;
-    if(!G.round)G.players.forEach(p=>{p.chips=p.buyin=c.start});
-  }
-  G.players.push(...(G.wait||[]));G.wait=[];
-  if(G.players.length<2){alert('Need at least 2 players.');return}
-  const d=[];for(let r=2;r<=14;r++)for(let s=1;s<=4;s++)d.push([r,s]);
-  for(let i=d.length-1;i>0;i--){const j=rnd(i+1);[d[i],d[j]]=[d[j],d[i]]}
-  G.pot=0;
-  G.players.forEach(p=>{p.cards=[d.pop(),d.pop(),d.pop()];p.seen=false;p.packed=false;p.blinds=0;p.countered=false;p.last='Boot '+G.cfg.boot;pay(p,G.cfg.boot)});
-  G.dealer=(G.dealer+1)%G.players.length;G.turn=G.dealer;nextTurn();
-  G.ctr=null;G.stake=G.cfg.boot;G.round++;G.phase='play';G.result=null;G.side=null;
-  lg('Round '+G.round+' – boot '+G.cfg.boot+' each');await save();
-}
+/* ---------- game logic helpers (display only; the server decides everything) ---------- */
 function turnInfo(p){
   const S=G.stake,cf=G.cfg,ct=G.ctr,lim=cf.maxBlind||0,triple=!!(ct&&ct.n>=1);
   if(p.seen)return{chaal:2*S*(triple?3:1),triple};
@@ -227,109 +254,40 @@ function turnInfo(p){
   if(capHit)return{force:true};
   return{chaal:S};
 }
-async function doAct(t,v){
-  const i=G.turn,p=G.players[i];
-  if(G.phase!='play'||p.id!=me.id||G.side)return;
-  const triple=!!(G.ctr&&G.ctr.n>=1),seenChaal=2*G.stake*(triple?3:1),cost=p.seen?seenChaal:seenChaal/2;
-  if(t=='see'){p.seen=true;just=true}
-  else if(t=='pack'){p.packed=true;p.last='Packed';lg(p.name+' packed');ev('fold');live().length==1?finish(live()[0],null):nextTurn()}
-  else if(t=='chaal'){const ti=turnInfo(p);if(ti.chaal==null)return;const c=ti.chaal;
-    if(p.seen){if(ti.triple)G.stake*=3;p.last=(ti.triple?'Chaal ×3 ':'Chaal ')+c;pay(p,c);lg(p.name+' chaal '+c+(ti.triple?' (×3)':''));ev('chip');G.ctr={C:c,n:0}}
-    else{p.blinds=(p.blinds||0)+1;p.last='Blind '+c;pay(p,c);lg(p.name+' blind '+c);ev('chip')}
-    nextTurn()}
-  else if(t=='counter'){const ti=turnInfo(p);if(!ti.counter)return;pay(p,ti.counter);p.blinds=(p.blinds||0)+1;p.countered=true;p.last=ti.label+' '+ti.counter;lg(p.name+' '+ti.label.toLowerCase()+' '+ti.counter);ev('chip');G.ctr.n++;nextTurn()}
-  else if(t=='raise'){const ti1=turnInfo(p);if(ti1.force||ti1.counter)return;const S=+v,c=p.seen?2*S:S;if(!(S>G.stake&&S<=Math.floor(G.cfg.max/2)))return;G.stake=S;p.last='Raise '+c;if(!p.seen)p.blinds=(p.blinds||0)+1;G.ctr=p.seen?{C:c,n:0}:null;pay(p,c);lg(p.name+' raised, stake '+S+' (paid '+c+')');ev('stack');nextTurn()}
-  else if(t=='show'){if(live().length!=2)return;const o=live().find(x=>x!=i);p.last='Show '+cost;pay(p,cost);lg(p.name+' asked for a show');ev('chip');finish(cmp(score(p.cards),score(G.players[o].cards))>0?i:o,{taker:i,target:o})}
-  else if(t=='side'){if(live().length<3||!live().every(x=>G.players[x].seen))return;const o=prevLive(i),b=G.players[o];G.ctr=null;if(triple)G.stake*=3;p.last='Side show '+cost;pay(p,cost);const lo=cmp(score(p.cards),score(b.cards))>0?b:p;lo.packed=true;lo.last='Packed (side show)';lg(p.name+' side show with '+b.name+': '+lo.name+' packed');ev('chip');live().length==1?finish(live()[0],null):nextTurn()}
-  await save();
-}
-async function sideAns(ok){
-  const s=G.side;if(!s||G.players[s.to].id!=me.id)return;
-  const a=G.players[s.from],b=G.players[s.to];G.turn=s.from;G.side=null;
-  if(ok){const lo=cmp(score(a.cards),score(b.cards))>0?b:a;lo.packed=true;lo.last='Packed (side show)';lg('Side show: '+a.name+' vs '+b.name+' – '+lo.name+' packed')}
-  else{b.last='Declined side show';lg(b.name+' declined the side show')}
-  live().length==1?finish(live()[0],null):nextTurn();
-  await save();
+async function deal(){
+  const x={};
+  if($('c_boot'))x.cfg={boot:+$('c_boot').value,start:+$('c_start').value,max:+$('c_max').value,rAAA:+$('c_aaa').value,rFace:+$('c_face').value,rNum:+$('c_num').value,maxBlind:+$('c_blind').value,turnSecs:+$('c_turn').value,nextSecs:+$('c_next').value,maxPlayers:+$('c_maxp').value};
+  const r=await act('deal',x);if(r.ok)draft=null;
 }
 async function topup(){
   const v=Math.floor(+tuv);if(!(v>0))return;
-  for(let t=0;t<4;t++){
-    const p=G.players.find(x=>x.id==me.id)||(G.wait||[]).find(x=>x.id==me.id);if(!p)return;
-    p.chips+=v;p.buyin+=v;lg(p.name+' added '+v);ev('coin');
-    if(await save()){tuv='';render();return}
-  }
+  const r=await act('topup',{v});if(r.ok){tuv='';render()}
 }
-
 async function resetGame(){
   if(G.host!=me.id)return;
   if(!confirm('Reset the game? Everyone goes back to the starting chips and all earlier settlement is forgotten. To end the game and see who owes whom, use Close game instead.'))return;
-  for(let t=0;t<4;t++){
-    G.players.push(...(G.wait||[]));G.wait=[];G.players=G.players.filter(p=>!p.left);G.gone=[];
-    G.players.forEach(p=>{p.chips=p.buyin=G.cfg.start;p.cards=null;p.seen=false;p.packed=false});
-    Object.assign(G,{phase:'lobby',closeAfter:false,round:0,pot:0,stake:G.cfg.boot,turn:0,dealer:-1,side:null,result:null,log:['Game reset by '+me.name]});
-    if(await save())return;
-  }
+  await act('reset');
 }
 
 /* ---------- exit, close, settlement ---------- */
-async function sitDown(){
-  for(let t=0;t<4;t++){
-    if(idx()>=0||inWait())return;
-    if(G.cfg.maxPlayers&&G.players.filter(p=>!p.left).length+(G.wait||[]).length>=G.cfg.maxPlayers){alert('The table is full right now.');return}
-    G.spec=(G.spec||[]).filter(x=>x.id!=me.id);
-    (G.phase=='play'?G.wait:G.players).push({id:me.id,name:me.name,chips:G.cfg.start,buyin:G.cfg.start});
-    lg(me.name+' took a seat');if(await save())break;
-  }
-}
-async function stopWatching(){
-  for(let t=0;t<4;t++){G.spec=(G.spec||[]).filter(x=>x.id!=me.id);lg(me.name+' stopped watching');if(await save())break}
-  location.reload();
-}
-function leaveNow(p){
-  p.left=true;p.last='Left';lg(p.name+' left the table');ev('fold');
-  if(G.host==p.id){const nh=G.players.find(x=>!x.left);if(nh)G.host=nh.id}
-}
-// Players who asked to exit during a round leave once it has finished and balances are settled
-function processExits(){
-  G.players.forEach(p=>{if(p.exitPending){p.exitPending=false;leaveNow(p)}});
-  if(!G.players.some(x=>!x.left))G.phase='closed';
-}
+async function sitDown(){if(idx()>=0||inWait())return;await act('sit')}
+async function stopWatching(){await act('unwatch');location.reload()}
 async function exitGame(){
   if(idx()<0)return;
   const inRound=G.phase=='play';
-  if(inRound&&G.players[idx()].exitPending){alert('You are already set to leave when this round ends.');return}
+  if(inRound&&G.players[idx()].exitPending){toast('You are already set to leave when this round ends.',true);return}
   if(!confirm(inRound?'Leave the table? Your hand will be packed now and you will be exited after this round ends, so balances are settled.':'Leave the table? You will see who owes whom.'))return;
-  for(let t=0;t<4;t++){
-    const j=idx();if(j<0||G.players[j].left)break;
-    const p=G.players[j];
-    if(G.phase=='play'){
-      const s=G.side,wasTurn=G.turn==j&&!s;
-      p.exitPending=true;lg(p.name+' will leave after this round');
-      if(!p.packed){
-        p.packed=true;p.last='Packed (leaving)';ev('fold');
-        if(s&&(s.from==j||s.to==j)){if(s.to==j)G.turn=s.from;G.side=null;nextTurn()}
-        else if(wasTurn)nextTurn();
-        if(live().length==1)finish(live()[0],null);
-        else if(live().length==0)G.phase='closed';
-      }
-    }else{leaveNow(p);if(!G.players.some(x=>!x.left))G.phase='closed'}
-    if(await save())break;
-  }
-  render();
+  await act('exit');
 }
 async function closeAfterToggle(){
   if(G.host!=me.id||G.phase!='play')return;
   if(!G.closeAfter&&!confirm('Close the game after this round? Everyone will see who owes whom when the round ends.'))return;
-  for(let t=0;t<4;t++){
-    if(G.phase!='play')return;
-    G.closeAfter=!G.closeAfter;lg(G.closeAfter?'Host will close the game after this round':'Host cancelled closing');
-    if(await save())return;
-  }
+  await act('closeafter');
 }
 async function closeGame(){
   if(G.host!=me.id||G.phase=='play')return;
   if(!confirm('Close the game for everyone and show who owes whom?'))return;
-  G.phase='closed';lg('Game closed by host');await save();
+  await act('close');
 }
 function nets(){
   const m={},add=x=>{const e=m[x.id]||(m[x.id]={id:x.id,name:x.name,chips:0,buyin:0});e.name=x.name;e.chips+=x.chips;e.buyin+=x.buyin};
@@ -447,7 +405,6 @@ function sndDiff(){
     end.push('coin');
   }
   const cur=G.players[G.turn];
-  if(n.phase=='play'&&cur&&cur.id==me.id&&!cur.packed&&(n.tid!==o.tid||n.round!==o.round||o.phase!='play'))out.push('ping');
   const mine=n.phase=='play'&&cur&&cur.id==me.id&&!cur.packed&&(n.tid!==o.tid||n.round!==o.round||o.phase!='play');
   play(out);
   if(end.length)setTimeout(()=>play(end),out.length?450:0);
@@ -470,7 +427,8 @@ function toggleFs(){
 }
 ['fullscreenchange','webkitfullscreenchange'].forEach(t=>document.addEventListener(t,()=>{if(focus&&!document.fullscreenElement&&!document.webkitFullscreenElement)setFocus(false)}));
 ['pointerdown','touchend','keydown'].forEach(t=>document.addEventListener(t,unlock));
-document.addEventListener('visibilitychange',()=>{if(!document.hidden&&unlocked)wl()});
+document.addEventListener('visibilitychange',()=>{if(!document.hidden){if(unlocked)wl();poll()}});
+window.addEventListener('online',()=>poll());
 
 /* ---------- chat ---------- */
 let chOpen=false,chSeen=-1,rxSeen=-1;
@@ -506,38 +464,22 @@ function toggleChat(){
 }
 async function sendMsg(v,r){
   if(!v||!G)return;
-  for(let t=0;t<4;t++){
-    G.chat=(G.chat||[]).concat([{id:me.id,n:me.name,t:Date.now(),m:v.slice(0,200),r:r?1:0}]).slice(-60);
-    if(await save()){const l=$('chList');l.scrollTop=l.scrollHeight;return}
-  }
+  const res=await call('chat',{m:v.slice(0,200),r:r?1:0});
+  if(!res.ok&&res.error)toast(res.error);
+  apply(res);const l=$('chList');if(l)l.scrollTop=l.scrollHeight;
 }
 async function sendChat(){const el=$('chIn'),v=el.value.trim();if(!v||!G)return;el.value='';return sendMsg(v,false)}
 
-/* ---------- turn timer ---------- */
-let tkey='',tstart=Date.now(),busy=false,tickN=-1;
-function tk(){const k=G.round+':'+(G.tid||0)+':'+(G.side?'s':'')+':'+G.phase;if(k!==tkey){tkey=k;tstart=Date.now()}}
-function leftNext(){return Math.max(0,Math.ceil((G.cfg.nextSecs||0)-(Date.now()-tstart)/1000))}
-function leftSecs(){return Math.max(0,Math.ceil((G.cfg.turnSecs||0)-(Date.now()-tstart)/1000))}
-async function autoAct(){
-  if(G.side){
-    const s=G.side,b=G.players[s.to];G.turn=s.from;G.side=null;b.last='Timed out';
-    lg(b.name+' ran out of time, side show declined');nextTurn();await save();return;
-  }
-  const p=G.players[G.turn];p.packed=true;p.last='Packed (time)';lg(p.name+' ran out of time and was packed');ev('buzz');
-  live().length==1?finish(live()[0],null):nextTurn();await save();
-}
+/* ---------- timers (display only; the server enforces them) ---------- */
 setInterval(()=>{
   if(!G)return;
-  if(G.phase=='over'&&G.cfg.nextSecs>0){
-    tk();const n=G.cfg.nextSecs,el=(Date.now()-tstart)/1000,x=$('nx');if(x)x.textContent=leftNext();
-    if(el>=n+(G.host==me.id?0:3)&&!busy){busy=true;deal(true).finally(()=>{busy=false})}
-    return;
+  if(G.phase=='over'&&G.cfg.nextSecs>0){const x=$('nx');if(x)x.textContent=leftNext()}
+  else if(G.phase=='play'&&G.cfg.turnSecs>0){
+    const t=$('tm');if(t)t.textContent=leftSecs();
+    const cur=G.players[G.turn],secs=G.cfg.turnSecs,el=elapsed();
+    if(cur&&cur.id==me.id&&!cur.packed&&el<secs&&secs-el<=5&&Math.floor(el)!==tickN){tickN=Math.floor(el);play(['tick'])}
   }
-  if(G.phase!='play'||!(G.cfg.turnSecs>0))return;
-  tk();const secs=G.cfg.turnSecs,el=(Date.now()-tstart)/1000,t=$('tm');if(t)t.textContent=leftSecs();
-  const owner=G.side?G.players[G.side.to].id:G.players[G.turn].id;
-  if(owner==me.id&&el<secs&&secs-el<=5&&Math.floor(el)!==tickN){tickN=Math.floor(el);play(['tick'])}
-  if(el>=secs+(owner==me.id?0:2.5)&&!busy){busy=true;autoAct().finally(()=>{busy=false})}
+  maybeTick();ensureCards();
 },1000);
 
 /* ---------- dealer + dealing animation ---------- */
@@ -579,14 +521,14 @@ function slotsFor(n){
   return n%2?[[50,bot],...L,...R]:[[36.5,bot],...L,...R,[63.5,bot]];
 }
 function seatsH(){
-  const vis=G.players.map((q,i)=>i).filter(i=>!G.players[i].left),n=vis.length,play=G.phase=='play',over=G.phase=='over',R=G.result;
+  const vis=G.players.map((q,i)=>i).filter(i=>!G.players[i].left),n=vis.length,play=G.phase=='play',over=G.phase=='over',R=G.result,rv0=(R&&R.reveal)||{};
   const mi=Math.max(0,vis.indexOf(idx())),P=slotsFor(n);
   return vis.map((_,k)=>{
     const i=vis[(mi+k)%n],q=G.players[i],net=q.chips-q.buyin,[x,y]=P[k];
-    const rv=over&&R&&q.cards&&((R.show&&!q.packed)||(R.roy||[]).some(r=>r.h==i));
+    const rc=over&&rv0[q.id]&&((R.show&&!q.packed)||(R.roy||[]).some(r=>r.h==i))?rv0[q.id]:null;
     const st=q.packed?'packed':play?(q.seen?'seen':'blind'):'';
     const cls=(play&&G.turn==i&&!q.packed?'turn ':'')+(play&&q.packed?'out ':'')+(over&&R&&R.w==i?'win':'');
-    return `<div class="seat ${cls}" data-pid="${esc(q.id)}" style="left:${x}%;top:${y}">${G.dealer==i&&G.round?'<span class="dbtn">D</span>':''}<b>${esc(q.name)}${q.id==me.id?' ★':''}</b><div>${q.chips} <span class="${net>=0?'pos':'neg'}">${net>=0?'+':''}${net}</span></div>${rv?`<div class="cs">${q.cards.map(c=>cardH(c,false,true)).join('')}</div>`:`<div class="mu">${st}</div>${q.last&&(play||over)?`<div class="lm">${esc(q.last)}</div>`:''}`}</div>`}).join('');
+    return `<div class="seat ${cls}" data-pid="${esc(q.id)}" style="left:${x}%;top:${y}">${G.dealer==i&&G.round?'<span class="dbtn">D</span>':''}<b>${esc(q.name)}${q.id==me.id?' ★':''}</b><div>${q.chips} <span class="${net>=0?'pos':'neg'}">${net>=0?'+':''}${net}</span></div>${rc?`<div class="cs">${rc.map(c=>cardH(c,false,true)).join('')}</div>`:`<div class="mu">${st}</div>${q.last&&(play||over)?`<div class="lm">${esc(q.last)}</div>`:''}`}</div>`}).join('');
 }
 function controls(p,i){
   const play=G.phase=='play',cf=G.cfg,ry=`Royalty AAA ${cf.rAAA} · face trio ${cf.rFace} · number trio ${cf.rNum} · max blind turns ${cf.maxBlind||'no limit'} · timer ${cf.turnSecs?cf.turnSecs+'s':'off'} · auto next hand ${cf.nextSecs?cf.nextSecs+'s':'off'} · max ${cf.maxPlayers||'any'} players`;
@@ -608,11 +550,6 @@ function controls(p,i){
       return `<div class="mu">Waiting for the host to deal.<br>Boot ${cf.boot} · start ${cf.start} · max chaal ${cf.max}<br>${ry}</div>`;
     }
     return (cf.nextSecs>0?`<div class="gl">${G.closeAfter?'Game closes in':'Next hand in'} <span id="nx">${leftNext()}</span>s</div>`:'')+(G.host==me.id?`<button class="pri" data-a="deal">${G.closeAfter?'Close game now':cf.nextSecs>0?'Deal now':'Next round'}</button>`:(cf.nextSecs>0?'':'<div class="mu">Waiting for the host to deal…</div>'))+`<div class="mu">Boot ${cf.boot} · max chaal ${cf.max}<br>${ry}</div>`;
-  }
-  if(G.side){
-    const s=G.side,b=G.players[s.to];
-    if(b.id==me.id)return `<div class="gl">${esc(G.players[s.from].name)} asks for a side show</div><button class="pri" data-a="yes">Accept</button>`;
-    return `<div class="mu">Side show: waiting for ${esc(b.name)} to answer…</div>`;
   }
   if(!p)return isSpec()?'<div class="mu">👀 You are watching.</div>':'<div class="mu">You will join next round.</div>';
   if(p.exitPending)return '<div class="mu">You will be exited when this round ends, so balances are settled…</div>';
@@ -637,17 +574,17 @@ function settleH(){
 let ovPrev=null;
 // Overlay for everyone when a round ends in a show: lasts (next hand timer - 1) seconds, 3s if the timer is off
 function showOverlay(){
-  const R=G.result,ps=G.players.map((q,i)=>i).filter(i=>!G.players[i].packed&&G.players[i].cards);
+  const R=G.result,rv=(R&&R.reveal)||{},ps=G.players.map((q,i)=>i).filter(i=>!G.players[i].packed&&rv[G.players[i].id]);
   if(!R||ps.length<2)return;
   const old=$('ovShow');if(old)old.remove();
   const d=document.createElement('div');d.id='ovShow';d.className='ov';
-  d.innerHTML=`<div class="ovb"><div class="gl">Show</div>${ps.map(i=>{const q=G.players[i],w=i==R.w;return `<div class="ovr ${w?'win':''}"><div>${w?'🏆 ':''}<b>${esc(q.name)}</b> · ${hname(q.cards)}${w?' · wins '+R.pot:''}</div><div class="cs">${q.cards.map(c=>cardH(c,false,false)).join('')}</div></div>`}).join('')}</div>`;
+  d.innerHTML=`<div class="ovb"><div class="gl">Show</div>${ps.map(i=>{const q=G.players[i],cs=rv[q.id],w=i==R.w;return `<div class="ovr ${w?'win':''}"><div>${w?'🏆 ':''}<b>${esc(q.name)}</b> · ${hname(cs)}${w?' · wins '+R.pot:''}</div><div class="cs">${cs.map(c=>cardH(c,false,false)).join('')}</div></div>`}).join('')}</div>`;
   const ns=G.cfg.nextSecs||0,ms=ns>0?Math.max(1,ns-1)*1000:3000;
   document.body.appendChild(d);setTimeout(()=>d.remove(),ms);
 }
 function render(){
   if(!G)return;
-  tk();renderChat();sndDiff();
+  renderChat();sndDiff();
   const mi0=idx(),mp0=G.players[mi0],gone0=(G.gone||[]).some(x=>x.id==me.id)&&mi0<0&&!inWait();
   if(G.phase=='closed'||(mp0&&mp0.left)||gone0){app.innerHTML=finalH(G.phase=='closed');return}
   if(ovPrev=='play'&&G.phase=='over'&&G.result&&G.result.show)showOverlay();
@@ -658,11 +595,11 @@ function render(){
   if($('c_boot'))draft={boot:+$('c_boot').value,start:+$('c_start').value,max:+$('c_max').value,aaa:+$('c_aaa').value,face:+$('c_face').value,num:+$('c_num').value,blind:+$('c_blind').value,turn:+$('c_turn').value,next:+$('c_next').value,maxp:+$('c_maxp').value};
   const i=idx(),p=G.players[i],play=G.phase=='play',over=G.phase=='over',R=G.result;
   let h=`<div class="table">${dealerH()}<div class="felt"></div><div class="mid"><div class="mu">POT</div><div class="pot">${G.pot}</div>${play?`<div class="mu">stake ${G.stake} · max chaal ${G.cfg.max}</div><div class="mu">Blind ${G.stake} · Seen ${G.stake*2}</div>${G.ctr?`<div class="mu">Last chaal ${G.ctr.C}${G.ctr.n?` · counters ${G.ctr.n}/2 · next chaal ×3`:''}</div>`:''}<div class="gl">▶ ${esc(G.players[G.turn].name)}</div>${G.cfg.turnSecs>0?`<div class="mu">⏱ <span id="tm">${leftSecs()}</span>s</div>`:''}`:''}${over&&R?`<div class="gl">🏆 ${esc(G.players[R.w].name)} wins ${R.pot}</div>${(R.roy||[]).map(r=>`<div class="gl">👑 ${esc(G.players[r.h].name)} ${r.hn}: ${r.amt} × ${r.n}</div>`).join('')}`:''}</div>${seatsH()}</div>`;
-  if(p&&p.cards&&(play||over)){
-    const show=p.seen||over,hk=G.round+':'+(show?1:0);
+  if(p&&p.rd===G.round&&(play||over)){
+    const mc=hand&&hand.round===G.round?hand.cards:null,show=!!mc&&(p.seen||over),hk=G.round+':'+(show?1:0);
     if(show&&hs==G.round+':0')flipT=Date.now();
     hs=hk;
-    h+=`<div class="panel"><div class="mu" style="text-align:center">Your cards${show?' · '+hname(p.cards):''}</div><div class="cs">${p.cards.map((c,ci)=>cardH(c,!show,false,ci)).join('')}</div></div>`;
+    h+=`<div class="panel"><div class="mu" style="text-align:center">Your cards${show?' · '+hname(mc):''}</div><div class="cs">${[0,1,2].map(ci=>cardH(show?mc[ci]:null,!show,false,ci)).join('')}</div></div>`;
   }
   if(G.closeAfter&&G.phase!='closed')h+=`<div class="mu" style="text-align:center">🔒 The game will close after this round</div>`;
   h+=`<div class="panel" id="ctl">${controls(p,i)}</div>`;
@@ -677,7 +614,8 @@ function render(){
   if(p)h+=`<div class="panel hf"><button class="dng" data-a="exit">Exit table</button>${G.host==me.id?`${G.round?'<button class="dng" data-a="reset">Reset game</button>':''}${play?`<button class="dng" data-a="closeafter">${G.closeAfter?'Cancel close after this round':'Close after this round'}</button>`:'<button class="dng" data-a="close">Close game</button>'}<div class="mu">Close ends the game for everyone and shows who owes whom${play?'. During a round it closes the game as soon as the round ends':''}. Reset starts everyone fresh and forgets the settlement.</div>`:''}</div>`;
   h+=`<div class="panel log hf">${G.log.slice(-6).reverse().map(esc).join('<br>')}</div>
   <details class="panel hf"><summary>Hand ranking</summary><div class="mu" style="margin-top:6px">1 Trail (AAA … 222)<br>2 Pure sequence<br>3 Sequence<br>Both sequences: 235 highest, then AKQ, A23, KQJ … 234; same sequence → higher suit of top card<br>4 Colour (compare card by card, then suit)<br>5 Pair (then third card, then suit of the pair’s higher card)<br>6 High card<br>Suits: ♠ › ♥ › ♦ › ♣</div></details>`;
-  app.innerHTML=h;just=false;if(nd)dealAnim();
+  app.innerHTML=h;if(nd)dealAnim();
+  ensureCards();
 }
 document.addEventListener('click',e=>{
   const q=e.target.closest('[data-q]');if(q){$('rxPop').hidden=true;if(G)sendMsg(q.dataset.q,true);return}
@@ -687,8 +625,9 @@ document.addEventListener('click',e=>{
   if(a=='fs'){toggleFs();return}
   if(a=='join')return enter('join');
   if(a=='spec')return enter('spec');
+  if(a=='home'){location.reload();return}
   if(!G)return;
-  if(a=='deal')deal();else if(a=='topup')topup();else if(a=='reset')resetGame();else if(a=='exit')exitGame();else if(a=='close')closeGame();else if(a=='closeafter')closeAfterToggle();else if(a=='home')location.reload();else if(a=='chat')toggleChat();else if(a=='send')sendChat();else if(a=='sit')sitDown();else if(a=='unspec')stopWatching();else if(a=='share')shareSettle(b);else if(a=='copy')copySettle(b);else if(a=='yes')sideAns(true);else if(a=='no')sideAns(false);
+  if(a=='deal')deal();else if(a=='topup')topup();else if(a=='reset')resetGame();else if(a=='exit')exitGame();else if(a=='close')closeGame();else if(a=='closeafter')closeAfterToggle();else if(a=='chat')toggleChat();else if(a=='send')sendChat();else if(a=='sit')sitDown();else if(a=='unspec')stopWatching();else if(a=='share')shareSettle(b);else if(a=='copy')copySettle(b);
   else if(a=='raise')doAct('raise',rs);else doAct(a);
 });
 document.addEventListener('input',e=>{
