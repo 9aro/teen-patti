@@ -191,6 +191,7 @@ function finish(w,sh){
     if(n){roy.push({h:hi,amt,n,hn:hname(h.cards)});lg('Royalty: '+h.name+' ('+hname(h.cards)+') collects '+amt+' from '+n)}
   });
   G.result={w,pot:G.pot,show:!!sh,roy};lg(p.name+' wins '+G.pot);G.pot=0;G.phase='over';G.side=null;
+  processExits();
 }
 const rnd=n=>{if(typeof crypto=='undefined'||!crypto.getRandomValues)return Math.floor(Math.random()*n);const a=new Uint32Array(1),lim=Math.floor(4294967296/n)*n;do{crypto.getRandomValues(a)}while(a[0]>=lim);return a[0]%n};
 async function deal(auto){
@@ -284,22 +285,34 @@ async function stopWatching(){
   for(let t=0;t<4;t++){G.spec=(G.spec||[]).filter(x=>x.id!=me.id);lg(me.name+' stopped watching');if(await save())break}
   location.reload();
 }
+function leaveNow(p){
+  p.left=true;p.last='Left';lg(p.name+' left the table');ev('fold');
+  if(G.host==p.id){const nh=G.players.find(x=>!x.left);if(nh)G.host=nh.id}
+}
+// Players who asked to exit during a round leave once it has finished and balances are settled
+function processExits(){
+  G.players.forEach(p=>{if(p.exitPending){p.exitPending=false;leaveNow(p)}});
+  if(!G.players.some(x=>!x.left))G.phase='closed';
+}
 async function exitGame(){
   if(idx()<0)return;
-  if(!confirm('Leave the table? Your hand is packed and you will see who owes whom.'))return;
+  const inRound=G.phase=='play';
+  if(inRound&&G.players[idx()].exitPending){alert('You are already set to leave when this round ends.');return}
+  if(!confirm(inRound?'Leave the table? Your hand will be packed now and you will be exited after this round ends, so balances are settled.':'Leave the table? You will see who owes whom.'))return;
   for(let t=0;t<4;t++){
     const j=idx();if(j<0||G.players[j].left)break;
-    const p=G.players[j],s=G.side,wasTurn=G.phase=='play'&&G.turn==j&&!s;
-    p.left=true;p.last='Left';lg(p.name+' left the table');ev('fold');
-    if(G.host==p.id){const nh=G.players.find(x=>!x.left);if(nh)G.host=nh.id}
+    const p=G.players[j];
     if(G.phase=='play'){
-      p.packed=true;
-      if(s&&(s.from==j||s.to==j)){if(s.to==j)G.turn=s.from;G.side=null;nextTurn()}
-      else if(wasTurn)nextTurn();
-      if(live().length==1)finish(live()[0],null);
-      else if(live().length==0)G.phase='closed';
-    }
-    if(!G.players.some(x=>!x.left))G.phase='closed';
+      const s=G.side,wasTurn=G.turn==j&&!s;
+      p.exitPending=true;lg(p.name+' will leave after this round');
+      if(!p.packed){
+        p.packed=true;p.last='Packed (leaving)';ev('fold');
+        if(s&&(s.from==j||s.to==j)){if(s.to==j)G.turn=s.from;G.side=null;nextTurn()}
+        else if(wasTurn)nextTurn();
+        if(live().length==1)finish(live()[0],null);
+        else if(live().length==0)G.phase='closed';
+      }
+    }else{leaveNow(p);if(!G.players.some(x=>!x.left))G.phase='closed'}
     if(await save())break;
   }
   render();
@@ -602,6 +615,7 @@ function controls(p,i){
     return `<div class="mu">Side show: waiting for ${esc(b.name)} to answer…</div>`;
   }
   if(!p)return isSpec()?'<div class="mu">👀 You are watching.</div>':'<div class="mu">You will join next round.</div>';
+  if(p.exitPending)return '<div class="mu">You will be exited when this round ends, so balances are settled…</div>';
   if(G.turn!=i)return p.packed?'<div class="mu">You packed. Waiting for the round to finish…</div>':`<div class="mu">Waiting for ${esc(G.players[G.turn].name)}…</div>${p.seen?'':'<button data-a="see">See cards</button>'}`;
   const ti=turnInfo(p),cost=(p.seen?2:1)*G.stake*(ti.triple?3:1),hi=Math.floor(cf.max/2),lo=G.stake+cf.boot,L=live().length;
   const free=!ti.force&&!ti.counter;
