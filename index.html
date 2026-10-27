@@ -146,6 +146,12 @@ async function enter(mode){
   if(SUPABASE_URL.startsWith('PASTE')){app.innerHTML='<div class="panel">Add your Supabase URL and key at the top of the script in index.html.</div>';return}
   app.innerHTML='<div class="panel">Connecting…</div>';
   sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+  // Anonymous sign-in: lets the database tell signed-in players from strangers
+  const au=await sb.auth.getSession();
+  if(!au.data.session){
+    const a=await sb.auth.signInAnonymously();
+    if(a.error){app.innerHTML='<div class="panel"><div class="gl">Sign-in failed</div><div class="mu">'+esc(a.error.message)+'</div><button data-a="home">Back</button></div>';return}
+  }
   me.id=ls('tp_id')||('p'+Math.random().toString(36).slice(2,10));ls('tp_id',me.id);
   await pull(true);
   if(!G){
@@ -200,6 +206,9 @@ async function deal(auto){
   for(let i=d.length-1;i>0;i--){const j=rnd(i+1);[d[i],d[j]]=[d[j],d[i]]}
   G.pot=0;
   G.players.forEach(p=>{p.cards=[d.pop(),d.pop(),d.pop()];p.seen=false;p.packed=false;p.blinds=0;p.countered=false;p.last='Boot '+G.cfg.boot;pay(p,G.cfg.boot)});
+  // Hand-type statistics, to check the shuffle over many rounds
+  G.stats=G.stats||{n:0,t:[0,0,0,0,0,0,0,0]};
+  G.players.forEach(p=>{G.stats.t[score(p.cards)[0]]++;G.stats.n++});
   G.dealer=(G.dealer+1)%G.players.length;G.turn=G.dealer;nextTurn();
   G.ctr=null;G.stake=G.cfg.boot;G.round++;G.phase='play';G.result=null;G.side=null;
   lg('Round '+G.round+' – boot '+G.cfg.boot+' each');await save();
@@ -600,6 +609,12 @@ function controls(p,i){
 function settleH(){
   return `<details class="panel hf" ${G.phase=='over'?'open':''}><summary>Settle up</summary>${settleBody()}</details>`;
 }
+// Actual vs expected share of each hand type (expected values use this game's rules: 235 counts as a sequence)
+function statsH(){
+  const s=G.stats;if(!s||!s.n)return'';
+  const T=[[7,'Trail',.2353],[6,'Pure seq',.2353],[5,'Sequence',3.529],[4,'Colour',4.941],[3,'Pair',16.941],[2,'High card',74.118]];
+  return `<details class="panel hf"><summary>Hand stats (${s.n} hands)</summary><table style="width:100%;font-size:14px;border-collapse:collapse;margin-top:6px"><tr class="mu"><td>Type</td><td align="right">Count</td><td align="right">Actual</td><td align="right">Expected</td></tr>${T.map(([k,n,e])=>`<tr><td>${n}</td><td align="right">${s.t[k]||0}</td><td align="right">${((s.t[k]||0)/s.n*100).toFixed(2)}%</td><td align="right">${e.toFixed(2)}%</td></tr>`).join('')}</table></details>`;
+}
 function render(){
   if(!G)return;
   tk();renderChat();sndDiff();
@@ -626,6 +641,7 @@ function render(){
   if((G.spec||[]).length)h+=`<div class="mu hf">👀 Watching: ${G.spec.map(w=>esc(w.name)).join(', ')}</div>`;
   if(isSpec())h+=`<div class="panel hf"><button class="pri" data-a="sit">Take a seat</button><button class="dng" data-a="unspec">Stop watching</button></div>`;
   if(G.round)h+=settleH();
+  if(G.round)h+=statsH();
   if(p)h+=`<div class="panel hf"><button class="dng" data-a="exit">Exit table</button>${G.host==me.id?`${G.round?'<button class="dng" data-a="reset">Reset game</button>':''}${play?'':'<button class="dng" data-a="close">Close game</button>'}<div class="mu">Close ends the game for everyone and shows who owes whom${play?' (available between rounds)':''}. Reset starts everyone fresh and forgets the settlement.</div>`:''}</div>`;
   h+=`<div class="panel log hf">${G.log.slice(-6).reverse().map(esc).join('<br>')}</div>
   <details class="panel hf"><summary>Hand ranking</summary><div class="mu" style="margin-top:6px">1 Trail (AAA … 222)<br>2 Pure sequence<br>3 Sequence<br>Both sequences: 235 highest, then AKQ, A23, KQJ … 234; same sequence → higher suit of top card<br>4 Colour (compare card by card, then suit)<br>5 Pair (then third card, then suit of the pair’s higher card)<br>6 High card<br>Suits: ♠ › ♥ › ♦ › ♣</div></details>`;
