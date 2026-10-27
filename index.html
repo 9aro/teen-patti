@@ -72,6 +72,10 @@ details summary{cursor:pointer;color:var(--go)}
 .bub.em{font-size:34px;background:none;box-shadow:none;padding:0}.bub.em::after{display:none}
 @keyframes bub{0%{opacity:0}8%{opacity:1}85%{opacity:1}100%{opacity:0}}
 .bar{position:absolute;top:14px;left:14px;right:14px;display:flex;align-items:center;gap:8px;margin:0;pointer-events:none}.bar button{pointer-events:auto;margin:0;padding:6px 10px;font-size:26px;line-height:1;background:none;box-shadow:none}.bar .sp{flex:1}
+.ov{position:fixed;inset:0;z-index:80;display:flex;align-items:center;justify-content:center;background:#000b;pointer-events:none;animation:ovin .25s}
+.ovb{background:var(--pn);border:1px solid var(--go);border-radius:16px;padding:12px 16px;text-align:center;max-width:92vw}
+.ovr{margin:8px 0;padding:6px;border-radius:12px;border:1px solid transparent}.ovr.win{border-color:var(--ok);box-shadow:0 0 16px var(--ok)}
+@keyframes ovin{from{opacity:0}to{opacity:1}}
 body.fsm h1,body.fsm .hf{display:none}body.fsm main{padding-top:4px}
 </style></head><body><main><div class="bar"><button id="muBtn" data-a="mute" aria-label="Sound">🔊</button><span class="sp"></span><button id="fsBtn" data-a="fs" aria-label="Full screen">⛶</button></div>
 <div id="app"></div></main>
@@ -190,6 +194,7 @@ function finish(w,sh){
 }
 const rnd=n=>{if(typeof crypto=='undefined'||!crypto.getRandomValues)return Math.floor(Math.random()*n);const a=new Uint32Array(1),lim=Math.floor(4294967296/n)*n;do{crypto.getRandomValues(a)}while(a[0]>=lim);return a[0]%n};
 async function deal(auto){
+  if(G.closeAfter&&G.phase=='over'&&(auto||G.host==me.id)){G.phase='closed';G.closeAfter=false;lg('Game closed after the final round');await save();return}
   if(auto){if(G.phase!='over'||G.players.filter(p=>!p.left).length+(G.wait||[]).length<2)return}
   else if(G.host!=me.id)return;
   G.gone=(G.gone||[]).concat(G.players.filter(p=>p.left).map(p=>({id:p.id,name:p.name,chips:p.chips,buyin:p.buyin})));
@@ -206,9 +211,6 @@ async function deal(auto){
   for(let i=d.length-1;i>0;i--){const j=rnd(i+1);[d[i],d[j]]=[d[j],d[i]]}
   G.pot=0;
   G.players.forEach(p=>{p.cards=[d.pop(),d.pop(),d.pop()];p.seen=false;p.packed=false;p.blinds=0;p.countered=false;p.last='Boot '+G.cfg.boot;pay(p,G.cfg.boot)});
-  // Hand-type statistics, to check the shuffle over many rounds
-  G.stats=G.stats||{n:0,t:[0,0,0,0,0,0,0,0]};
-  G.players.forEach(p=>{G.stats.t[score(p.cards)[0]]++;G.stats.n++});
   G.dealer=(G.dealer+1)%G.players.length;G.turn=G.dealer;nextTurn();
   G.ctr=null;G.stake=G.cfg.boot;G.round++;G.phase='play';G.result=null;G.side=null;
   lg('Round '+G.round+' – boot '+G.cfg.boot+' each');await save();
@@ -263,7 +265,7 @@ async function resetGame(){
   for(let t=0;t<4;t++){
     G.players.push(...(G.wait||[]));G.wait=[];G.players=G.players.filter(p=>!p.left);G.gone=[];
     G.players.forEach(p=>{p.chips=p.buyin=G.cfg.start;p.cards=null;p.seen=false;p.packed=false});
-    Object.assign(G,{phase:'lobby',round:0,pot:0,stake:G.cfg.boot,turn:0,dealer:-1,side:null,result:null,log:['Game reset by '+me.name]});
+    Object.assign(G,{phase:'lobby',closeAfter:false,round:0,pot:0,stake:G.cfg.boot,turn:0,dealer:-1,side:null,result:null,log:['Game reset by '+me.name]});
     if(await save())return;
   }
 }
@@ -301,6 +303,14 @@ async function exitGame(){
     if(await save())break;
   }
   render();
+}
+async function closeAfterToggle(){
+  if(G.host!=me.id||G.phase!='play')return;
+  for(let t=0;t<4;t++){
+    if(G.phase!='play')return;
+    G.closeAfter=!G.closeAfter;lg(G.closeAfter?'Host will close the game after this round':'Host cancelled closing');
+    if(await save())return;
+  }
 }
 async function closeGame(){
   if(G.host!=me.id||G.phase=='play')return;
@@ -583,7 +593,7 @@ function controls(p,i){
       <div class="mu">Set a royalty to 0 to switch it off.</div><button class="pri" data-a="deal">Deal</button>`;
       return `<div class="mu">Waiting for the host to deal.<br>Boot ${cf.boot} · start ${cf.start} · max chaal ${cf.max}<br>${ry}</div>`;
     }
-    return (cf.nextSecs>0?`<div class="gl">Next hand in <span id="nx">${leftNext()}</span>s</div>`:'')+(G.host==me.id?`<button class="pri" data-a="deal">${cf.nextSecs>0?'Deal now':'Next round'}</button>`:(cf.nextSecs>0?'':'<div class="mu">Waiting for the host to deal…</div>'))+`<div class="mu">Boot ${cf.boot} · max chaal ${cf.max}<br>${ry}</div>`;
+    return (cf.nextSecs>0?`<div class="gl">${G.closeAfter?'Game closes in':'Next hand in'} <span id="nx">${leftNext()}</span>s</div>`:'')+(G.host==me.id?`<button class="pri" data-a="deal">${G.closeAfter?'Close game now':cf.nextSecs>0?'Deal now':'Next round'}</button>`:(cf.nextSecs>0?'':'<div class="mu">Waiting for the host to deal…</div>'))+`<div class="mu">Boot ${cf.boot} · max chaal ${cf.max}<br>${ry}</div>`;
   }
   if(G.side){
     const s=G.side,b=G.players[s.to];
@@ -609,17 +619,23 @@ function controls(p,i){
 function settleH(){
   return `<details class="panel hf" ${G.phase=='over'?'open':''}><summary>Settle up</summary>${settleBody()}</details>`;
 }
-// Actual vs expected share of each hand type (expected values use this game's rules: 235 counts as a sequence)
-function statsH(){
-  const s=G.stats;if(!s||!s.n)return'';
-  const T=[[7,'Trail',.2353],[6,'Pure seq',.2353],[5,'Sequence',3.529],[4,'Colour',4.941],[3,'Pair',16.941],[2,'High card',74.118]];
-  return `<details class="panel hf"><summary>Hand stats (${s.n} hands)</summary><table style="width:100%;font-size:14px;border-collapse:collapse;margin-top:6px"><tr class="mu"><td>Type</td><td align="right">Count</td><td align="right">Actual</td><td align="right">Expected</td></tr>${T.map(([k,n,e])=>`<tr><td>${n}</td><td align="right">${s.t[k]||0}</td><td align="right">${((s.t[k]||0)/s.n*100).toFixed(2)}%</td><td align="right">${e.toFixed(2)}%</td></tr>`).join('')}</table></details>`;
+let ovPrev=null;
+// 3-second overlay for everyone when a round ends in a show
+function showOverlay(){
+  const R=G.result,ps=G.players.map((q,i)=>i).filter(i=>!G.players[i].packed&&G.players[i].cards);
+  if(!R||ps.length<2)return;
+  const old=$('ovShow');if(old)old.remove();
+  const d=document.createElement('div');d.id='ovShow';d.className='ov';
+  d.innerHTML=`<div class="ovb"><div class="gl">Show</div>${ps.map(i=>{const q=G.players[i],w=i==R.w;return `<div class="ovr ${w?'win':''}"><div>${w?'🏆 ':''}<b>${esc(q.name)}</b> · ${hname(q.cards)}${w?' · wins '+R.pot:''}</div><div class="cs">${q.cards.map(c=>cardH(c,false,false)).join('')}</div></div>`}).join('')}</div>`;
+  document.body.appendChild(d);setTimeout(()=>d.remove(),3000);
 }
 function render(){
   if(!G)return;
   tk();renderChat();sndDiff();
   const mi0=idx(),mp0=G.players[mi0],gone0=(G.gone||[]).some(x=>x.id==me.id)&&mi0<0&&!inWait();
   if(G.phase=='closed'||(mp0&&mp0.left)||gone0){app.innerHTML=finalH(G.phase=='closed');return}
+  if(ovPrev=='play'&&G.phase=='over'&&G.result&&G.result.show)showOverlay();
+  ovPrev=G.phase;
   let nd=false;
   if(animRound<0||G.round<animRound)animRound=G.round;
   else if(G.round>animRound&&G.phase=='play'){animRound=G.round;nd=true;dealT=Date.now()}
@@ -632,6 +648,7 @@ function render(){
     hs=hk;
     h+=`<div class="panel"><div class="mu" style="text-align:center">Your cards${show?' · '+hname(p.cards):''}</div><div class="cs">${p.cards.map((c,ci)=>cardH(c,!show,false,ci)).join('')}</div></div>`;
   }
+  if(G.closeAfter&&G.phase!='closed')h+=`<div class="mu" style="text-align:center">🔒 The game will close after this round</div>`;
   h+=`<div class="panel" id="ctl">${controls(p,i)}</div>`;
   if(p||(G.wait||[]).some(w=>w.id==me.id)){
     const me_=p||G.wait.find(w=>w.id==me.id);
@@ -641,8 +658,7 @@ function render(){
   if((G.spec||[]).length)h+=`<div class="mu hf">👀 Watching: ${G.spec.map(w=>esc(w.name)).join(', ')}</div>`;
   if(isSpec())h+=`<div class="panel hf"><button class="pri" data-a="sit">Take a seat</button><button class="dng" data-a="unspec">Stop watching</button></div>`;
   if(G.round)h+=settleH();
-  if(G.round)h+=statsH();
-  if(p)h+=`<div class="panel hf"><button class="dng" data-a="exit">Exit table</button>${G.host==me.id?`${G.round?'<button class="dng" data-a="reset">Reset game</button>':''}${play?'':'<button class="dng" data-a="close">Close game</button>'}<div class="mu">Close ends the game for everyone and shows who owes whom${play?' (available between rounds)':''}. Reset starts everyone fresh and forgets the settlement.</div>`:''}</div>`;
+  if(p)h+=`<div class="panel hf"><button class="dng" data-a="exit">Exit table</button>${G.host==me.id?`${G.round?'<button class="dng" data-a="reset">Reset game</button>':''}${play?`<button class="dng" data-a="closeafter">${G.closeAfter?'Cancel close after this round':'Close after this round'}</button>`:'<button class="dng" data-a="close">Close game</button>'}<div class="mu">Close ends the game for everyone and shows who owes whom${play?'. During a round it closes the game as soon as the round ends':''}. Reset starts everyone fresh and forgets the settlement.</div>`:''}</div>`;
   h+=`<div class="panel log hf">${G.log.slice(-6).reverse().map(esc).join('<br>')}</div>
   <details class="panel hf"><summary>Hand ranking</summary><div class="mu" style="margin-top:6px">1 Trail (AAA … 222)<br>2 Pure sequence<br>3 Sequence<br>Both sequences: 235 highest, then AKQ, A23, KQJ … 234; same sequence → higher suit of top card<br>4 Colour (compare card by card, then suit)<br>5 Pair (then third card, then suit of the pair’s higher card)<br>6 High card<br>Suits: ♠ › ♥ › ♦ › ♣</div></details>`;
   app.innerHTML=h;just=false;if(nd)dealAnim();
@@ -656,7 +672,7 @@ document.addEventListener('click',e=>{
   if(a=='join')return enter('join');
   if(a=='spec')return enter('spec');
   if(!G)return;
-  if(a=='deal')deal();else if(a=='topup')topup();else if(a=='reset')resetGame();else if(a=='exit')exitGame();else if(a=='close')closeGame();else if(a=='home')location.reload();else if(a=='chat')toggleChat();else if(a=='send')sendChat();else if(a=='sit')sitDown();else if(a=='unspec')stopWatching();else if(a=='share')shareSettle(b);else if(a=='copy')copySettle(b);else if(a=='yes')sideAns(true);else if(a=='no')sideAns(false);
+  if(a=='deal')deal();else if(a=='topup')topup();else if(a=='reset')resetGame();else if(a=='exit')exitGame();else if(a=='close')closeGame();else if(a=='closeafter')closeAfterToggle();else if(a=='home')location.reload();else if(a=='chat')toggleChat();else if(a=='send')sendChat();else if(a=='sit')sitDown();else if(a=='unspec')stopWatching();else if(a=='share')shareSettle(b);else if(a=='copy')copySettle(b);else if(a=='yes')sideAns(true);else if(a=='no')sideAns(false);
   else if(a=='raise')doAct('raise',rs);else doAct(a);
 });
 document.addEventListener('input',e=>{
