@@ -161,6 +161,7 @@ function apply(res){
     if(G&&res.state.round<G.round)hand=null; // game was reset
     const key=res.state.round+':'+(res.state.tid||0)+':'+res.state.phase,first=lastKey===null;
     G=res.state;ver=res.version;ch=true;
+    if(peekShown<0)peekShown=G.sideN||0;
     if(!first&&key!==lastKey)sample();
     lastKey=key;
   }
@@ -189,9 +190,12 @@ async function poll(){
 }
 // My own cards come only from the server, and only after I have looked (or the round is over)
 let cardsBusy=false,cardsNext=0,cardTry={r:-1,n:0};
+const needPeek=()=>!!(G&&G.sideRes&&G.sideRes.n>peekShown&&(G.sideRes.a==me.id||G.sideRes.b==me.id));
 function needCards(){
   if(!G||idx()<0)return false;const p=G.players[idx()];
-  if(!p||p.rd!==G.round||(hand&&hand.round===G.round))return false;
+  if(!p)return false;
+  if(needPeek()&&!(hand&&hand.peek&&hand.peek.n===G.sideRes.n))return true;
+  if(p.rd!==G.round||(hand&&hand.round===G.round))return false;
   return(G.phase=='play'&&p.seen)||G.phase=='over';
 }
 function ensureCards(){
@@ -571,24 +575,39 @@ function controls(p,i){
 function settleH(){
   return `<details class="panel hf" ${G.phase=='over'?'open':''}><summary>Settle up</summary>${settleBody()}</details>`;
 }
-let ovPrev=null;
-// Overlay for everyone when a round ends in a show: lasts (next hand timer - 1) seconds, 3s if the timer is off
-function showOverlay(){
+let ovRound=-1,peekShown=-1,peekDet={n:0,t:0};
+// How long the show stays on screen: next-hand timer minus 1 second (3 seconds if the timer is off)
+const showMs=()=>{const ns=G.cfg.nextSecs||0;return ns>0?Math.max(1,ns-1)*1000:3000};
+// Everyone sees both hands in the centre when a round ends in a show, and who won
+function showOverlay(ms){
   const R=G.result,rv=(R&&R.reveal)||{},ps=G.players.map((q,i)=>i).filter(i=>!G.players[i].packed&&rv[G.players[i].id]);
   if(!R||ps.length<2)return;
   const old=$('ovShow');if(old)old.remove();
   const d=document.createElement('div');d.id='ovShow';d.className='ov';
-  d.innerHTML=`<div class="ovb"><div class="gl">Show</div>${ps.map(i=>{const q=G.players[i],cs=rv[q.id],w=i==R.w;return `<div class="ovr ${w?'win':''}"><div>${w?'🏆 ':''}<b>${esc(q.name)}</b> · ${hname(cs)}${w?' · wins '+R.pot:''}</div><div class="cs">${cs.map(c=>cardH(c,false,false)).join('')}</div></div>`}).join('')}</div>`;
-  const ns=G.cfg.nextSecs||0,ms=ns>0?Math.max(1,ns-1)*1000:3000;
+  d.innerHTML=`<div class="ovb"><div class="gl">Show · 🏆 ${esc(G.players[R.w].name)} wins ${R.pot}</div>${ps.map(i=>{const q=G.players[i],cs=rv[q.id],w=i==R.w;return `<div class="ovr ${w?'win':''}"><div>${w?'🏆 ':''}<b>${esc(q.name)}</b> · ${hname(cs)}${w?' · wins '+R.pot:''}</div><div class="cs">${cs.map(c=>cardH(c,false,false)).join('')}</div></div>`}).join('')}</div>`;
   document.body.appendChild(d);setTimeout(()=>d.remove(),ms);
+}
+// Secret side show: only the two players involved see both hands, for 3 seconds
+function showPeek(pk,loser){
+  const old=$('ovPeek');if(old)old.remove();
+  const d=document.createElement('div');d.id='ovPeek';d.className='ov';
+  d.innerHTML=`<div class="ovb"><div class="gl">🔒 Secret side show · only you two see this</div>${pk.hands.map(x=>`<div class="ovr ${x.id==loser?'':'win'}"><div><b>${esc(x.name||'Player')}</b>${x.id==me.id?' (you)':''} · ${hname(x.cards)} · ${x.id==loser?'packed':'stays in'}</div><div class="cs">${x.cards.map(c=>cardH(c,false,false)).join('')}</div></div>`).join('')}</div>`;
+  document.body.appendChild(d);setTimeout(()=>d.remove(),3000);
+}
+function maybePeek(){
+  if(!needPeek())return;
+  const sr=G.sideRes;
+  if(peekDet.n!==sr.n)peekDet={n:sr.n,t:Date.now()};
+  if(!(hand&&hand.peek&&hand.peek.n===sr.n))return;
+  peekShown=sr.n;
+  if(Date.now()-peekDet.t<8000)showPeek(hand.peek,sr.loser);
 }
 function render(){
   if(!G)return;
   renderChat();sndDiff();
   const mi0=idx(),mp0=G.players[mi0],gone0=(G.gone||[]).some(x=>x.id==me.id)&&mi0<0&&!inWait();
   if(G.phase=='closed'||(mp0&&mp0.left)||gone0){app.innerHTML=finalH(G.phase=='closed');return}
-  if(ovPrev=='play'&&G.phase=='over'&&G.result&&G.result.show)showOverlay();
-  ovPrev=G.phase;
+  if(G.phase=='over'&&G.result&&G.result.show&&ovRound!==G.round){ovRound=G.round;const left=showMs()-elapsed()*1000;if(left>400)showOverlay(left)}
   let nd=false;
   if(animRound<0||G.round<animRound)animRound=G.round;
   else if(G.round>animRound&&G.phase=='play'){animRound=G.round;nd=true;dealT=Date.now()}
@@ -615,7 +634,7 @@ function render(){
   h+=`<div class="panel log hf">${G.log.slice(-6).reverse().map(esc).join('<br>')}</div>
   <details class="panel hf"><summary>Hand ranking</summary><div class="mu" style="margin-top:6px">1 Trail (AAA … 222)<br>2 Pure sequence<br>3 Sequence<br>Both sequences: 235 highest, then AKQ, A23, KQJ … 234; same sequence → higher suit of top card<br>4 Colour (compare card by card, then suit)<br>5 Pair (then third card, then suit of the pair’s higher card)<br>6 High card<br>Suits: ♠ › ♥ › ♦ › ♣</div></details>`;
   app.innerHTML=h;if(nd)dealAnim();
-  ensureCards();
+  ensureCards();maybePeek();
 }
 document.addEventListener('click',e=>{
   const q=e.target.closest('[data-q]');if(q){$('rxPop').hidden=true;if(G)sendMsg(q.dataset.q,true);return}
