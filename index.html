@@ -306,7 +306,7 @@ async function exitGame(){
 }
 async function closeAfterToggle(){
   if(G.host!=me.id||G.phase!='play')return;
-  if(G.closeAfter&&!confirm('Cancel closing? The game will keep going after this round.'))return;
+  if(!G.closeAfter&&!confirm('Close the game after this round? Everyone will see who owes whom when the round ends.'))return;
   for(let t=0;t<4;t++){
     if(G.phase!='play')return;
     G.closeAfter=!G.closeAfter;lg(G.closeAfter?'Host will close the game after this round':'Host cancelled closing');
